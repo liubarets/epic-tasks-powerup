@@ -1,15 +1,17 @@
-/* global TrelloPowerUp, EpicCore, EpicAuth */
+/* global TrelloPowerUp, EpicCore, EpicAuth, EpicTodo */
 // Card-back section: priorities + "add to TO DO" buttons per assignee for every checklist item.
+// "Add all to TO DO" lives in the section header (see client.js).
 (function () {
   'use strict';
   var Core = EpicCore;
+  var Todo = EpicTodo;
   var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
   var root = document.getElementById('root');
 
-  var ui = { mine: false, hideDone: false, busy: {}, bulk: {}, error: null };
+  var ui = { mine: false, hideDone: false, busy: {}, error: null };
   var data = null;
 
-  function api(method, path, params) { return EpicAuth.request(t, method, path, params); }
+  function api(method, path, params) { return Todo.api(t, method, path, params); }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -25,73 +27,7 @@
 
   function resize() { return t.sizeTo(document.body).catch(function () {}); }
 
-  // ------------------------------------------------------------------ data
-
-  function fetchCards(shortLinks) {
-    var out = {};
-    var chunks = [];
-    for (var i = 0; i < shortLinks.length; i += 10) chunks.push(shortLinks.slice(i, i + 10));
-    return Promise.all(chunks.map(function (chunk) {
-      var urls = chunk.map(function (s) { return '/cards/' + s; }).join(',');
-      return api('GET', '/batch', { urls: urls }).then(function (res) {
-        (res || []).forEach(function (r, j) { out[chunk[j]] = (r && r['200']) || null; });
-      });
-    })).then(function () { return out; });
-  }
-
-  function load() {
-    return Promise.all([
-      t.card('id', 'name', 'url', 'shortLink'),
-      t.board('id', 'members'),
-      t.member('id', 'username', 'fullName'),
-      t.lists('id', 'name'),
-      t.get('board', 'shared', 'cfg', {}),
-      t.get('card', 'shared', 'links', {}),
-    ]).then(function (r) {
-      var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: r[4] || {}, links: r[5] || {} };
-      d.listName = {};
-      d.lists.forEach(function (l) { d.listName[l.id] = l.name; });
-      return api('GET', '/cards/' + d.card.id + '/checklists', {
-        checkItems: 'all',
-        checkItem_fields: 'name,state,pos,due,idMember',
-        fields: 'name,pos',
-      }).then(function (checklists) {
-        checklists.sort(Core.byPos);
-        checklists.forEach(function (cl) { cl.checkItems.sort(Core.byPos); });
-        d.checklists = checklists;
-        var shortLinks = Object.keys(d.links).map(function (k) { return d.links[k]; })
-          .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
-        return fetchCards(shortLinks).then(function (cards) {
-          d.linked = cards;
-          d.alive = aliveLinks(d);
-          return d;
-        });
-      });
-    });
-  }
-
-  // A link counts only while its card exists, isn't cancelled (archived outside Done) and the
-  // person is still a member of the card. Otherwise the item is "＋ TO DO" for them again.
-  function linkedCard(d, itemId, memberId) {
-    var sl = d.links[Core.linkKey(itemId, memberId)];
-    var c = sl ? d.linked[sl] || null : null;
-    return Core.isLinkAlive(c, memberId, d.cfg.doneListIds) ? c : null;
-  }
-
-  // Links that are still alive. "Assign to me" takers are derived from these, so someone who
-  // removed themselves from the card is no longer shown on the item.
-  function aliveLinks(d) {
-    var out = {};
-    d.checklists.forEach(function (cl) {
-      cl.checkItems.forEach(function (it) {
-        (d.board.members || []).forEach(function (m) {
-          var k = Core.linkKey(it.id, m.id);
-          if (d.links[k] && linkedCard(d, it.id, m.id)) out[k] = d.links[k];
-        });
-      });
-    });
-    return out;
-  }
+  function linkedCard(itemId, memberId) { return Todo.linkedCard(data, itemId, memberId); }
 
   // If every assignee has a TO DO card and all of them are done → tick the item in the epic.
   function autoComplete(d) {
@@ -103,7 +39,7 @@
         var people = Core.allAssignees(it, d.board.members, d.alive).filter(function (a) { return !a.unknown; });
         if (!people.length) return;
         var allDone = people.every(function (a) {
-          return Core.isCardDone(linkedCard(d, it.id, a.id), d.cfg.doneListIds);
+          return Core.isCardDone(Todo.linkedCard(d, it.id, a.id), d.cfg.doneListIds);
         });
         if (allDone) {
           it.state = 'complete';
@@ -114,100 +50,10 @@
     return Promise.all(jobs);
   }
 
-  function findItem(itemId) {
-    for (var i = 0; i < data.checklists.length; i++) {
-      var cl = data.checklists[i];
-      for (var j = 0; j < cl.checkItems.length; j++) {
-        if (cl.checkItems[j].id === itemId) return { item: cl.checkItems[j], checklist: cl };
-      }
-    }
-    return null;
-  }
-
-  // Open items × board-member assignees that don't have a TO DO card yet.
-  function pendingInChecklist(cl) {
-    var out = [];
-    cl.checkItems.forEach(function (it) {
-      if (it.state === 'complete') return;
-      Core.allAssignees(it, data.board.members, data.alive).forEach(function (a) {
-        if (!a.unknown && !linkedCard(data, it.id, a.id)) out.push({ item: it, memberId: a.id });
-      });
-    });
-    return out;
-  }
-
   // ------------------------------------------------------------------ actions
 
-  function noTodoList() {
-    return data.cfg.todoListId ? null : new Error('Choose the TO DO list in settings (⚙) first.');
-  }
-
-  function saveLinks(newLinks) {
-    if (!Object.keys(newLinks).length) return Promise.resolve();
-    // Re-read right before writing to reduce clobbering when two people click at once.
-    return t.get('card', 'shared', 'links', {}).then(function (links) {
-      Object.keys(newLinks).forEach(function (k) { links[k] = newLinks[k]; });
-      var ids = [];
-      data.checklists.forEach(function (cl) { cl.checkItems.forEach(function (it) { ids.push(it.id); }); });
-      return t.set('card', 'shared', 'links', Core.pruneLinks(links, ids));
-    });
-  }
-
-  // Creates one TO DO card for (item, member); resolves with its shortLink.
-  function createTodoCard(item, checklist, memberId) {
-    return api('POST', '/cards', {
-      idList: data.cfg.todoListId,
-      name: Core.todoCardName(item.name, checklist.name),
-      desc: Core.todoCardDesc(data.card, checklist.name),
-      idMembers: memberId,
-      due: item.due || undefined,
-      pos: data.cfg.position === 'bottom' ? 'bottom' : 'top',
-    }).then(function (created) {
-      return api('POST', '/cards/' + created.id + '/attachments', { url: data.card.url, name: data.card.name })
-        .catch(function () { /* link back is nice-to-have */ })
-        .then(function () { return created.shortLink; });
-    });
-  }
-
-  function addToTodo(itemId, memberId) {
-    var f = findItem(itemId);
-    if (!f) return Promise.reject(new Error('Item not found. Refresh the block (⟳).'));
-    var err = noTodoList();
-    if (err) return Promise.reject(err);
-    return createTodoCard(f.item, f.checklist, memberId).then(function (shortLink) {
-      var nl = {};
-      nl[Core.linkKey(itemId, memberId)] = shortLink;
-      return saveLinks(nl);
-    });
-  }
-
-  // "Add all to TO DO": one card per open item × assignee that doesn't have one yet.
-  function addAllToTodo(clId) {
-    var cl = data.checklists.filter(function (c) { return c.id === clId; })[0];
-    if (!cl) return Promise.resolve();
-    var err = noTodoList();
-    if (err) return Promise.reject(err);
-    var jobs = pendingInChecklist(cl);
-    // With "top" placement each new card lands above the previous one,
-    // so create in reverse to keep the checklist order in the TO DO list.
-    if (data.cfg.position !== 'bottom') jobs.reverse();
-    var newLinks = {};
-    return jobs.reduce(function (p, j) {
-      return p.then(function () {
-        return createTodoCard(j.item, cl, j.memberId).then(function (shortLink) {
-          newLinks[Core.linkKey(j.item.id, j.memberId)] = shortLink;
-        });
-      });
-    }, Promise.resolve()).then(function () {
-      return saveLinks(newLinks);
-    }, function (e) {
-      // Keep links to the cards created before the failure.
-      return saveLinks(newLinks).then(function () { throw e; });
-    });
-  }
-
   function setPriority(itemId, level) {
-    var f = findItem(itemId);
+    var f = Todo.findItem(data, itemId);
     if (!f) return Promise.resolve();
     var newName = Core.withPriority(f.item.name, level);
     return api('PUT', '/cards/' + data.card.id + '/checkItem/' + itemId, { name: newName }).then(function () {
@@ -219,7 +65,7 @@
   // Keep the emoji in already-created (not yet done) TO DO cards in sync with the item.
   function syncLinkedPriority(item, level) {
     var people = Core.allAssignees(item, data.board.members, data.alive).filter(function (a) { return !a.unknown; });
-    var cards = people.map(function (a) { return linkedCard(data, item.id, a.id); })
+    var cards = people.map(function (a) { return linkedCard(item.id, a.id); })
       .filter(function (c) { return c && !Core.isCardDone(c, data.cfg.doneListIds); });
     return Promise.all(cards.map(function (c) {
       return api('PUT', '/cards/' + c.id, { name: Core.withPriority(c.name, level) });
@@ -250,7 +96,7 @@
     }
     var busyKey = item.id + ':' + a.id;
     if (ui.busy[busyKey]) return '<span class="' + cls + ' busy">' + who + ' · …</span>';
-    var c = linkedCard(data, item.id, a.id);
+    var c = linkedCard(item.id, a.id);
     if (c) {
       var done = Core.isCardDone(c, data.cfg.doneListIds);
       var where = '✓ ' + (done ? 'DONE' : esc(data.listName[c.idList] || 'TO DO'));
@@ -297,19 +143,13 @@
     var rows = cl.checkItems.map(itemHtml).join('');
     if (!rows && (ui.mine || ui.hideDone)) return '';
     var pct = total ? Math.round(done / total * 100) : 0;
-    var pending = pendingInChecklist(cl).length;
-    var addAll = ui.bulk[cl.id] ? '<span class="link-busy">Adding…</span>' :
-      '<button class="link" data-action="addall" data-cl="' + esc(cl.id) + '"' + (pending ? '' : ' disabled') + ' title="' +
-      (pending ? 'Create ' + pending + ' TO DO card(s) for the open items of this checklist that don\'t have one yet'
-               : 'Nothing to add: every open item with an assignee already has a TO DO card') +
-      '. Items without assignees are skipped.">＋ Add all to TO DO' + (pending ? ' (' + pending + ')' : '') + '</button>';
     return '<section class="cl"><div class="cl-head">' +
       '<span class="cl-name">' + esc(cl.name) + '</span>' +
       '<span class="cl-count">' + done + '/' + total + '</span>' +
       '<span class="bar"><span style="width:' + pct + '%"></span></span>' +
       '<span class="cl-actions">' +
       '<button class="link" data-action="sort" data-cl="' + esc(cl.id) + '" title="Sort items: P1 → P2 → P3 → no priority">↕ Sort by priority</button>' +
-      addAll + '</span>' +
+      '</span>' +
       '</div><ul>' + rows + '</ul></section>';
   }
 
@@ -348,7 +188,7 @@
   function refresh() {
     return EpicAuth.isAuthorized(t).then(function (ok) {
       if (!ok) { data = null; renderAuth(); return; }
-      return load().then(function (d) {
+      return Todo.load(t).then(function (d) {
         data = d;
         return autoComplete(d);
       }).then(render);
@@ -385,13 +225,8 @@
       var key = el.getAttribute('data-item') + ':' + el.getAttribute('data-member');
       if (ui.busy[key]) return;
       ui.busy[key] = 1; render();
-      run(addToTodo(el.getAttribute('data-item'), el.getAttribute('data-member')))
+      run(Todo.addToTodo(t, data, el.getAttribute('data-item'), el.getAttribute('data-member')))
         .then(function () { delete ui.busy[key]; render(); });
-    } else if (a === 'addall') {
-      var clId = el.getAttribute('data-cl');
-      if (ui.bulk[clId]) return;
-      ui.bulk[clId] = 1; render();
-      run(addAllToTodo(clId)).then(function () { delete ui.bulk[clId]; render(); });
     } else if (a === 'sort') {
       el.disabled = true; el.textContent = 'Sorting…';
       run(sortChecklist(el.getAttribute('data-cl')));
