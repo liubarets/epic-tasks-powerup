@@ -23,7 +23,7 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 | Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. |
 | Priority change | Updates the item and the emoji in TO DO cards that are not done yet. |
 | "Add all to TO DO" | One card per open item × assignee that doesn't have a card yet. Items without assignees, and people who are not board members, are skipped. The number in brackets shows how many cards will be created. |
-| Auto-complete | When every assignee of an item has a TO DO card and all of them are done (in a "Done" list, due date marked complete, or archived), the item in the epic is ticked. This happens when someone opens the epic. Can be turned off in settings. |
+| Auto-complete | When every assignee of an item has a TO DO card and all of them are in a "Done" list, the item in the epic is ticked. Only moving a card to Done completes it: a card archived from TO DO / In progress counts as cancelled (the item stays open and the chip shows "＋ TO DO" again), while a card archived from Done stays done. This happens when someone opens the epic. Can be turned off in settings. |
 
 ---
 
