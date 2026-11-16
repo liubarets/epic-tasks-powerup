@@ -21,8 +21,7 @@ button { font: inherit; cursor: pointer; }
 
 .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .toolbar .spacer { flex: 1; }
-.toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; margin: 0; font-weight: 400; }
-.toggle input { margin: 0; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; margin: 0; font-weight: 400; cursor: pointer; }
 .pill { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #ffeceb; color: var(--red); }
 button.icon { background: var(--bg-soft); border: 0; border-radius: 4px; width: 28px; height: 28px; padding: 0; margin: 0;
   font-size: 15px; color: var(--muted); }
@@ -31,19 +30,17 @@ button.link { background: none; border: 0; padding: 0; margin: 0; color: var(--b
 button.link:hover { text-decoration: underline; }
 
 .cl { margin: 10px 0 14px; }
-.cl-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.cl-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 4px; }
+.cl-actions { display: inline-flex; gap: 12px; margin-left: auto; }
+.link-busy { color: var(--muted); font-size: 12px; }
 .cl-name { font-weight: 600; }
 .cl-count { color: var(--muted); font-size: 12px; }
 .bar { flex: 1; height: 6px; background: var(--bg-soft); border-radius: 3px; overflow: hidden; min-width: 40px; }
 .bar > span { display: block; height: 100%; background: var(--green); }
 ul { list-style: none; margin: 0; padding: 0; }
 
-.item { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-radius: 6px; border-left: 3px solid transparent; }
+.item { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-radius: 6px; }
 .item:hover { background: var(--bg-soft); }
-.item.p1 { border-left-color: var(--red); }
-.item.p2 { border-left-color: var(--orange); }
-.item.p3 { border-left-color: var(--green); }
-.item > input[type=checkbox] { margin: 3px 0 0; width: 16px; height: 16px; flex: none; }
 .item.done .title { text-decoration: line-through; color: var(--muted); }
 
 select.prio { flex: none; width: 66px; height: 24px; min-height: 0; margin: 0; padding: 0 4px; font-size: 12px;
@@ -77,5 +74,24 @@ body.popup { padding: 4px 2px; }
 .popup label { display: block; margin: 10px 0 4px; font-weight: 400; }
 .popup select { width: 100%; }
 .checks label { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; }
-.checks input { margin-top: 3px; }
+.checks input { margin-top: 2px; }
 .popup button.mod-primary { margin-top: 12px; width: 100%; }
+
+/* Checkboxes & radios styled like Trello's own: light, thin border, blue when checked */
+input[type=checkbox], input[type=radio] {
+  -webkit-appearance: none; appearance: none;
+  flex: none; box-sizing: border-box; width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0;
+  border: 1px solid #8590a2; background: #fff; box-shadow: none; cursor: pointer;
+  display: inline-grid; place-content: center; vertical-align: middle;
+  transition: background-color .1s, border-color .1s;
+}
+input[type=checkbox] { border-radius: 2px; }
+input[type=radio] { border-radius: 50%; }
+input[type=checkbox]:hover, input[type=radio]:hover { border-color: #626f86; background-color: #f7f8f9; }
+input[type=checkbox]:checked { background: var(--blue); border-color: var(--blue); }
+input[type=checkbox]:checked::before {
+  content: ''; width: 8px; height: 4px; margin-top: -2px;
+  border: solid #fff; border-width: 0 0 2px 2px; transform: rotate(-45deg);
+}
+input[type=radio]:checked { border: 5px solid var(--blue); background: #fff; }
+input[type=checkbox]:focus-visible, input[type=radio]:focus-visible { outline: 2px solid #388bff; outline-offset: 1px; }
