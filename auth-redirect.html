@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <title>Epic Tasks — авторизація</title>
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script src="./js/config.js"></script>
+  <script src="./js/auth.js"></script>
+</head>
+<body>
+  <p>Завершуємо підключення…</p>
+  <script>
+    // Used only in OAuth 2.0 mode (OAUTH2_CLIENT_ID set in config.js).
+    window.addEventListener('load', function () {
+      var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
+      Promise.resolve(t.getOAuth2ApiClient().redirectUriCallback()).catch(function (e) {
+        document.body.textContent = 'Помилка авторизації: ' + (e && e.message ? e.message : e);
+      });
+    });
+  </script>
+</body>
+</html>
