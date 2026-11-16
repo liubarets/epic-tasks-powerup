@@ -5,13 +5,13 @@
   var ICON = new URL('./img/icon-gray.svg', window.location.href).href;
 
   TrelloPowerUp.initialize({
-    // "Epic tasks" section on the card back — only on cards that have checklists.
+    // "TASKS" section on the card back — only on cards that have checklists.
     'card-back-section': function (t) {
       return t.card('badges').then(function (card) {
         var b = (card && card.badges) || {};
         if (!b.checkItems) return null;
         return {
-          title: 'Epic tasks',
+          title: 'TASKS',
           icon: ICON,
           content: { type: 'iframe', url: t.signUrl('./section.html'), height: 200 },
         };
