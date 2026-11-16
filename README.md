@@ -1,11 +1,11 @@
 # Epic Tasks — a Trello Power-Up
 
-A custom Power-Up that adds an **"Epic tasks"** section to the back of an epic card:
+A custom Power-Up that adds a **"TASKS"** section to the back of an epic card:
 
 - A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3) and a "↕ Sort by priority" button.
 - A chip for **every assignee** next to each item: `@username ＋ TO DO`. A click creates a card in your TO DO list assigned to that person. **The item stays in the epic.**
 - "＋ Add all to TO DO" on every checklist: creates the missing TO DO cards for all open items of that checklist in one click.
-- After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✔ DONE`. Clicking the chip opens the card.
+- After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. Clicking the chip opens the card.
 - "＋ Assign to me": take an item you are not mentioned in.
 - "Only mine" and "Hide completed" filters, open P1 counter.
 
@@ -20,9 +20,9 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 | Priority | An emoji at the start of the item name (`🔴 Approve with legal`). It is visible in the regular Trello checklist and on the "My tasks" page too. |
 | Item assignees | `@username` in the item text, plus the native checklist-item assignee if one is set. |
 | TO DO card | Name: `🔴 Approve with legal — Merch launch`. Member: the assignee. Description: `[Epic name](epic link) / Checklist name`. Due date: from the item. Attachment: link to the epic. No labels — the emoji in the name is the priority. |
-| Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. |
+| Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. The link counts only while the card exists and the person is still a member of it: if they remove themselves from the card (or the card is deleted), the item shows "＋ TO DO" for them again. |
 | Priority change | Updates the item and the emoji in TO DO cards that are not done yet. |
-| "Add all to TO DO" | One card per open item × assignee that doesn't have a card yet. Items without assignees, and people who are not board members, are skipped. The number in brackets shows how many cards will be created. |
+| "Add all to TO DO" | One card per open item × assignee that doesn't have a card yet. Items without assignees, and people who are not board members, are skipped. The number in brackets shows how many cards will be created; the button is greyed out when there is nothing to add. |
 | Auto-complete | When every assignee of an item has a TO DO card and all of them are in a "Done" list, the item in the epic is ticked. Only moving a card to Done completes it: a card archived from TO DO / In progress counts as cancelled (the item stays open and the chip shows "＋ TO DO" again), while a card archived from Done stays done. This happens when someone opens the epic. Can be turned off in settings. |
 
 ---
@@ -69,7 +69,7 @@ Commit `config.js`. The API key and the Client ID are public by design in Trello
 ### 4. Enable it on a board
 
 1. Board → **Power-Ups** → **Custom** → *Epic Tasks* → **Add**.
-2. Power-Ups → Epic Tasks → **Authorize account** → "Connect" → Allow. Trello shows **Edit Power-Up settings** only after authorization. Alternatively use the ⚙ button in the "Epic tasks" section on a card.
+2. Power-Ups → Epic Tasks → **Authorize account** → "Connect" → Allow. Trello shows **Edit Power-Up settings** only after authorization. Alternatively use the ⚙ button in the "TASKS" section on a card.
 3. Power-Ups → Epic Tasks → **Edit Power-Up settings**:
    - **TO DO list**: where new cards go (e.g. `TO DO`).
    - **Done lists**: e.g. `Done`.
@@ -77,7 +77,7 @@ Commit `config.js`. The API key and the Client ID are public by design in Trello
 
 ### 5. Every team member: one click
 
-The first time someone opens an epic, the "Epic tasks" section shows a **Connect** button. They click it, allow access, and that's it.
+The first time someone opens an epic, the "TASKS" section shows a **Connect** button. They click it, allow access, and that's it.
 
 ---
 
@@ -100,7 +100,7 @@ The first time someone opens an epic, the "Epic tasks" section shows a **Connect
 
 ```
 index.html          connector (registers capabilities)
-section.html        "Epic tasks" section
+section.html        "TASKS" section
 settings.html       board settings
 auth.html           connect window
 auth-redirect.html  OAuth 2.0 callback
