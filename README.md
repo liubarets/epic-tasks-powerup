@@ -1,119 +1,122 @@
-# Epic Tasks — Power-Up для Trello
+# Epic Tasks — a Trello Power-Up
 
-Власний (custom) Power-Up, який додає на зворот картки-епіка блок **«Задачі епіка»**:
+A custom Power-Up that adds an **"Epic tasks"** section to the back of an epic card:
 
-- **Пріоритет** для кожного пункту чек-листа (🔴 P1 / 🟠 P2 / 🟢 P3) і кнопка «↕ За пріоритетом» для сортування.
-- Біля кожного пункту окремий чіп для **кожного виконавця**: `@username ＋ TODO`. Клік створює картку в списку TODO, призначену на цю людину. **Пункт лишається в епіку.**
-- Після цього чіп показує статус картки: `✓ TO DO`, `✓ In progress`, `✔ готово`. Клік по чіпу відкриває картку.
-- `＋ Взяти собі`: взяти пункт, де вас не згадано.
-- Фільтри «Лише мої» та «Сховати виконані», лічильник відкритих P1.
+- A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3) and a "↕ Sort by priority" button.
+- A chip for **every assignee** next to each item: `@username ＋ TO DO`. A click creates a card in your TO DO list assigned to that person. **The item stays in the epic.**
+- "＋ Add all to TO DO" on every checklist: creates the missing TO DO cards for all open items of that checklist in one click.
+- After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✔ DONE`. Clicking the chip opens the card.
+- "＋ Assign to me": take an item you are not mentioned in.
+- "Only mine" and "Hide completed" filters, open P1 counter.
 
-Встановлюється **один раз на воркспейс**. Нікому з команди не треба нічого ставити в браузер.
+Installed **once per Workspace**. Nobody on the team needs a browser extension.
 
 ---
 
-## Як це працює
+## How it works
 
-| Що | Як зберігається |
+| What | Where it is stored |
 |---|---|
-| Пріоритет | Емодзі на початку назви пункту (`🔴 Approve with legal`). Тому його видно і в звичайному чек-листі Trello, і на сторінці «Мої задачі». |
-| Виконавці пункту | `@username` у тексті пункту (як у вас зараз) + нативний виконавець пункту, якщо його призначено. |
-| Картка в TODO | Назва: `🔴 Approve with legal — Merch launch`. Учасник: виконавець. Мітка пріоритету `P1 🔴` (створюється автоматично). Дата: з пункту. Вкладення: посилання на епік. |
-| Зв'язок «пункт → картка» | У даних Power-Up на картці-епіку. Пункт чек-листа не змінюється. |
-| Зміна пріоритету | Оновлює і пункт, і вже створені TODO-картки (емодзі в назві + мітка). |
-| Автозакриття | Коли всі виконавці пункту мають TODO-картки і всі вони виконані (у списку «Done», з відміткою дати або в архіві), пункт в епіку відмічається сам. Це спрацьовує, коли хтось відкриває епік. Вмикається в налаштуваннях. |
+| Priority | An emoji at the start of the item name (`🔴 Approve with legal`). It is visible in the regular Trello checklist and on the "My tasks" page too. |
+| Item assignees | `@username` in the item text, plus the native checklist-item assignee if one is set. |
+| TO DO card | Name: `🔴 Approve with legal — Merch launch`. Member: the assignee. Description: `[Epic name](epic link) / Checklist name`. Due date: from the item. Attachment: link to the epic. No labels — the emoji in the name is the priority. |
+| Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. |
+| Priority change | Updates the item and the emoji in TO DO cards that are not done yet. |
+| "Add all to TO DO" | One card per open item × assignee that doesn't have a card yet. Items without assignees, and people who are not board members, are skipped. The number in brackets shows how many cards will be created. |
+| Auto-complete | When every assignee of an item has a TO DO card and all of them are done (in a "Done" list, due date marked complete, or archived), the item in the epic is ticked. This happens when someone opens the epic. Can be turned off in settings. |
 
 ---
 
-## Встановлення (≈20 хвилин, робить адмін воркспейсу)
+## Installation (≈20 minutes, done by a Workspace admin)
 
-### 1. Викласти файли на хостинг (HTTPS)
+### 1. Host the files (HTTPS)
 
-Підходить будь-який статичний хостинг. Найпростіше взяти **GitHub Pages**:
+Any static hosting works. The simplest option is **GitHub Pages**:
 
-1. Створіть репозиторій (наприклад `epic-tasks-powerup`) і завантажте туди **вміст** цієї папки.
-2. Settings → Pages → Source: `Deploy from a branch`, гілка `main`, папка `/ (root)` → Save.
-3. Через хвилину-дві сайт буде доступний за адресою `https://<ваш-логін>.github.io/epic-tasks-powerup/`.
+1. Create a repository (e.g. `epic-tasks-powerup`) and upload the **contents** of this folder.
+2. Settings → Pages → Source: `Deploy from a branch`, branch `main`, folder `/ (root)` → Save.
+3. In a minute or two the site is available at `https://<your-login>.github.io/epic-tasks-powerup/`.
 
-> Якщо політика компанії не дозволяє GitHub, підійде внутрішній вебсервер, Azure Static Web Apps, Netlify тощо. Бекенд не потрібен.
+> If company policy doesn't allow GitHub, an internal web server, Azure Static Web Apps, Netlify etc. work too. No backend is needed.
 
-### 2. Зареєструвати Power-Up
+### 2. Register the Power-Up
 
-1. Відкрийте https://trello.com/power-ups/admin → **New**.
-2. Workspace: ваш воркспейс. Name: `Epic Tasks`.
-   **Iframe connector URL**: `https://<ваш-логін>.github.io/epic-tasks-powerup/index.html`.
-   Вкажіть контактний e-mail → Create.
-3. Вкладка **Capabilities**: увімкніть
+1. Open https://trello.com/power-ups/admin → **New**.
+2. Workspace: your Workspace. Name: `Epic Tasks`.
+   **Iframe connector URL**: `https://<your-login>.github.io/epic-tasks-powerup/index.html`.
+   Enter a contact e-mail → Create.
+3. **Capabilities** tab: enable
    - `Card back section`
    - `Show settings`
    - `Authorization status`
    - `Show authorization`
 
-### 3. Авторизація (оберіть один варіант)
+### 3. Authorization (pick one)
 
-**Варіант А: Trello auth (простіший)**
-1. Вкладка **API key** (або *Authorization → Trello auth*) → *Generate a new API key*.
-2. Скопіюйте ключ у `js/config.js` → `APP_KEY`.
-3. На тій самій сторінці, в **Allowed origins**, додайте `https://<ваш-логін>.github.io`.
+**Option A: Trello auth (simpler)**
+1. **Trello Auth** tab → *Generate a new Trello Auth API key*.
+2. Copy the key into `js/config.js` → `APP_KEY`.
+3. On the same page, under **Allowed origins**, add `https://<your-login>.github.io`.
 
-**Варіант Б: OAuth 2.0** (якщо адмінка пропонує тільки його)
-1. *Authorization → OAuth 2.0* → створіть **public** client.
-2. Callback URL: `https://<ваш-логін>.github.io/epic-tasks-powerup/auth-redirect.html`.
-3. Scopes: читання й запис дошки (`read:board:trello`, `write:board:trello`).
-4. Client ID вставте в `js/config.js` → `OAUTH2_CLIENT_ID`. Якщо scopes називаються інакше, виправте `OAUTH2_SCOPES`.
+**Option B: OAuth 2.0** (Trello recommends it for new apps)
+1. **OAuth 2.0** tab → security type **Public**.
+2. Callback URL: `https://<your-login>.github.io/epic-tasks-powerup/auth-redirect.html`.
+3. Scopes: `read:board:trello`, `write:board:trello`.
+4. Put the Client ID into `js/config.js` → `OAUTH2_CLIENT_ID`.
 
-Закомітьте `config.js`. API key і Client ID публічні за задумом Trello, це не секрет.
+Commit `config.js`. The API key and the Client ID are public by design in Trello — they are not secrets. Never put the **Secret** from the API key page into the code.
 
-### 4. Увімкнути на дошці
+### 4. Enable it on a board
 
-1. Дошка → **Power-Ups** → **Custom** (або пошук по назві) → *Epic Tasks* → **Add**.
-2. Power-Ups → Epic Tasks → **Authorize account** → «Підключити» → Allow. Пункт **Edit Power-Up settings** Trello показує лише після авторизації. Інший шлях: кнопка ⚙ у блоці «Задачі епіка» на картці.
+1. Board → **Power-Ups** → **Custom** → *Epic Tasks* → **Add**.
+2. Power-Ups → Epic Tasks → **Authorize account** → "Connect" → Allow. Trello shows **Edit Power-Up settings** only after authorization. Alternatively use the ⚙ button in the "Epic tasks" section on a card.
 3. Power-Ups → Epic Tasks → **Edit Power-Up settings**:
-   - **Список TODO**: куди створювати картки (наприклад `TO DO`).
-   - **Списки «виконано»**: наприклад `Done`.
-   - Позиція нових карток, мітки пріоритету, автозакриття.
+   - **TO DO list**: where new cards go (e.g. `TO DO`).
+   - **Done lists**: e.g. `Done`.
+   - New card position and auto-complete.
 
-### 5. Кожен учасник: один клік
+### 5. Every team member: one click
 
-Під час першого відкриття епіка в блоці «Задачі епіка» буде кнопка **«Підключити»**. Людина натискає її, підтверджує доступ, і на цьому все.
+The first time someone opens an epic, the "Epic tasks" section shows a **Connect** button. They click it, allow access, and that's it.
 
 ---
 
-## Обмеження (чесно)
+## Limitations
 
-- Trello не дає Power-Up змінювати вигляд **нативного** чек-листа. Тому кнопки й пріоритети живуть в окремому блоці на звороті картки, а нативний чек-лист лишається як є. Пріоритет-емодзі видно і там.
-- Блок показується лише на картках, де є чек-лист.
-- Список TODO має бути на **тій самій дошці**.
-- Блок оновлюється, коли картку відкривають, після кожної дії в ньому та кнопкою ⟳. Живої синхронізації зі змінами інших людей у відкритій картці немає.
-- Мобільні застосунки Trello можуть не показувати блоки власних Power-Up. Емодзі-пріоритети та TODO-картки там видно як звичайні дані Trello.
-- Виконавці визначаються за `@username` у тексті пункту. Якщо людини немає серед учасників дошки, її чіп сірий і неактивний.
+- Trello doesn't let a Power-Up change how the **native** checklist looks. That's why buttons and priorities live in a separate section on the card back, while the native checklist stays as is (the priority emoji is visible there as well). Items are ticked in the native checklist.
+- The section appears only on cards that have a checklist.
+- The TO DO list must be on the **same board**.
+- The section refreshes when the card is opened, after every action in it, and with the ⟳ button. There is no live sync with other people's changes while the card is open.
+- Trello mobile apps may not show custom Power-Up sections. Emoji priorities and TO DO cards are visible there as regular Trello data.
+- Assignees are taken from `@username` in the item text. If the person is not a board member, their chip is grey and inactive.
+- After an update, GitHub Pages may serve the old version from cache for up to 10 minutes.
 
-## Безпека
+## Security
 
-- Серверної частини немає. Усі запити йдуть напряму з браузера користувача в Trello API від його імені й з його правами.
-- Токен зберігає сама бібліотека Trello у приватних даних Power-Up користувача. Відкликати його можна в Trello → Settings → Applications / Power-Ups.
+- There is no server side. All requests go straight from the user's browser to the Trello API, on their behalf and with their permissions.
+- The token is stored by Trello's own library in the user's private Power-Up data. It can be revoked in Trello → Settings → Applications / Power-Ups.
 
-## Структура
+## Structure
 
 ```
-index.html          конектор (реєструє можливості)
-section.html        блок «Задачі епіка»
-settings.html       налаштування дошки
-auth.html           вікно підключення
-auth-redirect.html  callback для OAuth 2.0
-js/config.js        ← єдиний файл, який треба редагувати
-js/core.js          логіка (пріоритети, згадки, сортування)
-js/auth.js          авторизація + REST
-js/section.js       UI блоку
-js/settings.js      UI налаштувань
+index.html          connector (registers capabilities)
+section.html        "Epic tasks" section
+settings.html       board settings
+auth.html           connect window
+auth-redirect.html  OAuth 2.0 callback
+js/config.js        ← the only file you need to edit
+js/core.js          logic (priorities, mentions, sorting)
+js/auth.js          authorization + REST
+js/section.js       section UI
+js/settings.js      settings UI
 css/style.css
 img/icon-gray.svg
-test/               тести (не викладаються на хостинг)
+test/               tests (not deployed)
 ```
 
-## Тести
+## Tests
 
 ```bash
-node --test test/core.test.js     # логіка
-python3 test/run_ui.py            # UI з імітацією Trello (потрібен playwright + Chrome)
+node --test test/core.test.js     # logic
+python3 test/run_ui.py            # UI against a mocked Trello (needs playwright + Chrome)
 ```
