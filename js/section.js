@@ -61,16 +61,36 @@
         d.checklists = checklists;
         var shortLinks = Object.keys(d.links).map(function (k) { return d.links[k]; })
           .filter(function (v, i, a) { return v && a.indexOf(v) === i; });
-        return fetchCards(shortLinks).then(function (cards) { d.linked = cards; return d; });
+        return fetchCards(shortLinks).then(function (cards) {
+          d.linked = cards;
+          d.alive = aliveLinks(d);
+          return d;
+        });
       });
     });
   }
 
+  // A link counts only while its card exists, isn't cancelled (archived outside Done) and the
+  // person is still a member of the card. Otherwise the item is "＋ TO DO" for them again.
   function linkedCard(d, itemId, memberId) {
     var sl = d.links[Core.linkKey(itemId, memberId)];
     var c = sl ? d.linked[sl] || null : null;
-    // A card archived outside the Done lists was cancelled: the item is open again.
-    return Core.isCardCancelled(c, d.cfg.doneListIds) ? null : c;
+    return Core.isLinkAlive(c, memberId, d.cfg.doneListIds) ? c : null;
+  }
+
+  // Links that are still alive. "Assign to me" takers are derived from these, so someone who
+  // removed themselves from the card is no longer shown on the item.
+  function aliveLinks(d) {
+    var out = {};
+    d.checklists.forEach(function (cl) {
+      cl.checkItems.forEach(function (it) {
+        (d.board.members || []).forEach(function (m) {
+          var k = Core.linkKey(it.id, m.id);
+          if (d.links[k] && linkedCard(d, it.id, m.id)) out[k] = d.links[k];
+        });
+      });
+    });
+    return out;
   }
 
   // If every assignee has a TO DO card and all of them are done → tick the item in the epic.
@@ -80,7 +100,7 @@
     d.checklists.forEach(function (cl) {
       cl.checkItems.forEach(function (it) {
         if (it.state === 'complete') return;
-        var people = Core.allAssignees(it, d.board.members, d.links).filter(function (a) { return !a.unknown; });
+        var people = Core.allAssignees(it, d.board.members, d.alive).filter(function (a) { return !a.unknown; });
         if (!people.length) return;
         var allDone = people.every(function (a) {
           return Core.isCardDone(linkedCard(d, it.id, a.id), d.cfg.doneListIds);
@@ -109,7 +129,7 @@
     var out = [];
     cl.checkItems.forEach(function (it) {
       if (it.state === 'complete') return;
-      Core.allAssignees(it, data.board.members, data.links).forEach(function (a) {
+      Core.allAssignees(it, data.board.members, data.alive).forEach(function (a) {
         if (!a.unknown && !linkedCard(data, it.id, a.id)) out.push({ item: it, memberId: a.id });
       });
     });
@@ -198,7 +218,7 @@
 
   // Keep the emoji in already-created (not yet done) TO DO cards in sync with the item.
   function syncLinkedPriority(item, level) {
-    var people = Core.allAssignees(item, data.board.members, data.links).filter(function (a) { return !a.unknown; });
+    var people = Core.allAssignees(item, data.board.members, data.alive).filter(function (a) { return !a.unknown; });
     var cards = people.map(function (a) { return linkedCard(data, item.id, a.id); })
       .filter(function (c) { return c && !Core.isCardDone(c, data.cfg.doneListIds); });
     return Promise.all(cards.map(function (c) {
@@ -233,7 +253,7 @@
     var c = linkedCard(data, item.id, a.id);
     if (c) {
       var done = Core.isCardDone(c, data.cfg.doneListIds);
-      var where = done ? '✔ DONE' : '✓ ' + esc(data.listName[c.idList] || 'TO DO');
+      var where = '✓ ' + (done ? 'DONE' : esc(data.listName[c.idList] || 'TO DO'));
       return '<button class="' + cls + (done ? ' done' : ' linked') + '" data-action="open" data-card="' + esc(c.id) +
         '" title="Open card">' + who + ' <span class="st">' + where + '</span></button>';
     }
@@ -244,7 +264,7 @@
 
   function itemHtml(item) {
     // Mentioned people + those who took the item via "Assign to me".
-    var people = Core.allAssignees(item, data.board.members, data.links);
+    var people = Core.allAssignees(item, data.board.members, data.alive);
     var mine = people.some(function (a) { return data.me && a.id === data.me.id; });
     if (ui.mine && !mine) return '';
     var done = item.state === 'complete';
@@ -279,7 +299,10 @@
     var pct = total ? Math.round(done / total * 100) : 0;
     var pending = pendingInChecklist(cl).length;
     var addAll = ui.bulk[cl.id] ? '<span class="link-busy">Adding…</span>' :
-      pending ? '<button class="link" data-action="addall" data-cl="' + esc(cl.id) + '" title="Create TO DO cards for every open item of this checklist that doesn\'t have one yet (items without assignees are skipped)">＋ Add all to TO DO (' + pending + ')</button>' : '';
+      '<button class="link" data-action="addall" data-cl="' + esc(cl.id) + '"' + (pending ? '' : ' disabled') + ' title="' +
+      (pending ? 'Create ' + pending + ' TO DO card(s) for the open items of this checklist that don\'t have one yet'
+               : 'Nothing to add: every open item with an assignee already has a TO DO card') +
+      '. Items without assignees are skipped.">＋ Add all to TO DO' + (pending ? ' (' + pending + ')' : '') + '</button>';
     return '<section class="cl"><div class="cl-head">' +
       '<span class="cl-name">' + esc(cl.name) + '</span>' +
       '<span class="cl-count">' + done + '/' + total + '</span>' +
