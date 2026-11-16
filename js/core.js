@@ -132,6 +132,12 @@
     return !!(card && card.closed && !isCardDone(card, doneListIds));
   }
 
+  // A linked TO DO card still counts for a person only while it exists, isn't cancelled and
+  // the person is still a member of it. Otherwise the item is back to "＋ TO DO" for them.
+  function isLinkAlive(card, memberId, doneListIds) {
+    return !!card && !isCardCancelled(card, doneListIds) && (card.idMembers || []).indexOf(memberId) !== -1;
+  }
+
   function todoCardName(itemName, checklistName) {
     var level = parsePriority(itemName);
     var title = cleanTitle(itemName);
@@ -163,6 +169,7 @@
     pruneLinks: pruneLinks,
     isCardDone: isCardDone,
     isCardCancelled: isCardCancelled,
+    isLinkAlive: isLinkAlive,
     todoCardName: todoCardName,
     todoCardDesc: todoCardDesc,
     byPos: byPos,
