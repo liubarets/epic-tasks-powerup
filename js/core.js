@@ -120,9 +120,16 @@
     return out;
   }
 
+  // Only a card that sits in a "Done" list counts as done. Archiving keeps the card's list,
+  // so a card archived from Done is still done, while one archived from TO DO is not.
   function isCardDone(card, doneListIds) {
     if (!card) return false;
-    return !!(card.closed || card.dueComplete || (doneListIds || []).indexOf(card.idList) !== -1);
+    return (doneListIds || []).indexOf(card.idList) !== -1;
+  }
+
+  // Archived without ever reaching a Done list = cancelled: treated as if there were no card.
+  function isCardCancelled(card, doneListIds) {
+    return !!(card && card.closed && !isCardDone(card, doneListIds));
   }
 
   function todoCardName(itemName, checklistName) {
@@ -155,6 +162,7 @@
     linkKey: linkKey,
     pruneLinks: pruneLinks,
     isCardDone: isCardDone,
+    isCardCancelled: isCardCancelled,
     todoCardName: todoCardName,
     todoCardDesc: todoCardDesc,
     byPos: byPos,
