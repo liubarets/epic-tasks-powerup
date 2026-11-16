@@ -68,7 +68,9 @@
 
   function linkedCard(d, itemId, memberId) {
     var sl = d.links[Core.linkKey(itemId, memberId)];
-    return sl ? d.linked[sl] || null : null;
+    var c = sl ? d.linked[sl] || null : null;
+    // A card archived outside the Done lists was cancelled: the item is open again.
+    return Core.isCardCancelled(c, d.cfg.doneListIds) ? null : c;
   }
 
   // If every assignee has a TO DO card and all of them are done → tick the item in the epic.
