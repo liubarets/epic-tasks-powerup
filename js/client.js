@@ -5,13 +5,13 @@
   var ICON = new URL('./img/icon-gray.svg', window.location.href).href;
 
   TrelloPowerUp.initialize({
-    // Блок "Задачі епіка" на звороті картки — лише на картках, де є чек-листи.
+    // "Epic tasks" section on the card back — only on cards that have checklists.
     'card-back-section': function (t) {
       return t.card('badges').then(function (card) {
         var b = (card && card.badges) || {};
         if (!b.checkItems) return null;
         return {
-          title: 'Задачі епіка',
+          title: 'Epic tasks',
           icon: ICON,
           content: { type: 'iframe', url: t.signUrl('./section.html'), height: 200 },
         };
@@ -19,7 +19,7 @@
     },
 
     'show-settings': function (t) {
-      return t.popup({ title: 'Epic Tasks — налаштування', url: './settings.html', height: 470 });
+      return t.popup({ title: 'Epic Tasks — settings', url: './settings.html', height: 420 });
     },
 
     'authorization-status': function (t) {
@@ -27,7 +27,7 @@
     },
 
     'show-authorization': function (t) {
-      return t.popup({ title: 'Підключення Epic Tasks', url: './auth.html', height: 150 });
+      return t.popup({ title: 'Connect Epic Tasks', url: './auth.html', height: 150 });
     },
   }, EpicAuth.iframeOptions());
 })();
