@@ -29,25 +29,35 @@
 
   function linkedCard(itemId, memberId) { return Todo.linkedCard(data, itemId, memberId); }
 
-  // If every assignee has a TO DO card and all of them are done → tick the item in the epic.
-  function autoComplete(d) {
+  // Keeps epic items in step with their TO DO cards: ticks an item when all its cards are in Done
+  // and unticks it again when one of those cards is moved out of Done (see Core.planItemSync).
+  function syncItems(d) {
     if (d.cfg.autoComplete === false) return Promise.resolve();
-    var jobs = [];
+    var items = [];
     d.checklists.forEach(function (cl) {
       cl.checkItems.forEach(function (it) {
-        if (it.state === 'complete') return;
-        var people = Core.allAssignees(it, d.board.members, d.alive).filter(function (a) { return !a.unknown; });
-        if (!people.length) return;
-        var allDone = people.every(function (a) {
-          return Core.isCardDone(Todo.linkedCard(d, it.id, a.id), d.cfg.doneListIds);
-        });
-        if (allDone) {
-          it.state = 'complete';
-          jobs.push(api('PUT', '/cards/' + d.card.id + '/checkItem/' + it.id, { state: 'complete' }));
-        }
+        var people = Core.allAssignees(it, d.board.members, d.alive)
+          .filter(function (a) { return !a.unknown; })
+          .map(function (a) {
+            var c = Todo.linkedCard(d, it.id, a.id);
+            return { done: c ? Core.isCardDone(c, d.cfg.doneListIds) : null };
+          });
+        items.push({ id: it.id, state: it.state, people: people });
       });
     });
-    return Promise.all(jobs);
+    var plan = Core.planItemSync(items, d.doneItems);
+    var jobs = [];
+    function setState(id, state) {
+      var f = Todo.findItem(d, id);
+      if (f) f.item.state = state;
+      jobs.push(api('PUT', '/cards/' + d.card.id + '/checkItem/' + id, { state: state }));
+    }
+    plan.tick.forEach(function (id) { setState(id, 'complete'); });
+    plan.untick.forEach(function (id) { setState(id, 'incomplete'); });
+    var changed = plan.tracked.slice().sort().join() !== (d.doneItems || []).slice().sort().join();
+    return Promise.all(jobs).then(function () {
+      if (changed) return t.set('card', 'shared', 'doneItems', plan.tracked);
+    });
   }
 
   // ------------------------------------------------------------------ actions
@@ -190,7 +200,7 @@
       if (!ok) { data = null; renderAuth(); return; }
       return Todo.load(t).then(function (d) {
         data = d;
-        return autoComplete(d);
+        return syncItems(d);
       }).then(render);
     }).catch(handleError);
   }
