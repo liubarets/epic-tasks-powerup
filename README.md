@@ -4,7 +4,7 @@ A custom Power-Up that adds a **"TASKS"** section to the back of an epic card:
 
 - A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3) and a "↕ Sort by priority" button.
 - A chip for **every assignee** next to each item: `@username ＋ TO DO`. A click creates a card in your TO DO list assigned to that person. **The item stays in the epic.**
-- "＋ Add all to TO DO" on every checklist: creates the missing TO DO cards for all open items of that checklist in one click.
+- "＋ Add all to TO DO" in the TASKS header: pick a checklist (or all of them) and create the missing TO DO cards for its open items in one click.
 - After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. Clicking the chip opens the card.
 - "＋ Assign to me": take an item you are not mentioned in.
 - "Only mine" and "Hide completed" filters, open P1 counter.
@@ -22,7 +22,7 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 | TO DO card | Name: `🔴 Approve with legal — Merch launch`. Member: the assignee. Description: `[Epic name](epic link) / Checklist name`. Due date: from the item. Attachment: link to the epic. No labels — the emoji in the name is the priority. |
 | Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. The link counts only while the card exists and the person is still a member of it: if they remove themselves from the card (or the card is deleted), the item shows "＋ TO DO" for them again. |
 | Priority change | Updates the item and the emoji in TO DO cards that are not done yet. |
-| "Add all to TO DO" | One card per open item × assignee that doesn't have a card yet. Items without assignees, and people who are not board members, are skipped. The number in brackets shows how many cards will be created; the button is greyed out when there is nothing to add. |
+| "Add all to TO DO" | The button sits in the TASKS header. Trello draws it, so it can't show a counter. A click opens a menu with the checklists that have something to add and how many cards each will create, plus "All checklists" when more than one does. One card per open item × assignee that doesn't have a card yet; items without assignees and people who are not board members are skipped. When there is nothing to add, Trello shows a short notice instead of the menu. |
 | Auto-complete | When every assignee of an item has a TO DO card and all of them are in a "Done" list, the item in the epic is ticked. Only moving a card to Done completes it: a card archived from TO DO / In progress counts as cancelled (the item stays open and the chip shows "＋ TO DO" again), while a card archived from Done stays done. This happens when someone opens the epic. Can be turned off in settings. |
 
 ---
@@ -106,8 +106,10 @@ auth.html           connect window
 auth-redirect.html  OAuth 2.0 callback
 js/config.js        ← the only file you need to edit
 js/core.js          logic (priorities, mentions, sorting)
+js/todo.js          loading the epic, link validity, creating TO DO cards
 js/auth.js          authorization + REST
 js/section.js       section UI
+js/client.js        connector + "Add all to TO DO" header button
 js/settings.js      settings UI
 css/style.css
 img/icon-gray.svg
