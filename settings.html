@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
@@ -10,24 +10,23 @@
 </head>
 <body class="popup">
   <form id="f">
-    <label for="todo"><b>Список TODO</b> — куди створювати картки</label>
+    <label for="todo"><b>TO DO list</b> — where new cards go</label>
     <select id="todo" required></select>
 
-    <label><b>Списки «виконано»</b> — картка в них вважається готовою</label>
+    <label><b>Done lists</b> — cards in these lists count as done</label>
     <div id="done" class="checks"></div>
 
-    <label><b>Нові картки додавати</b></label>
+    <label><b>Add new cards</b></label>
     <div class="checks">
-      <label><input type="radio" name="pos" value="top"> зверху списку</label>
-      <label><input type="radio" name="pos" value="bottom"> знизу списку</label>
+      <label><input type="radio" name="pos" value="top"> at the top of the list</label>
+      <label><input type="radio" name="pos" value="bottom"> at the bottom of the list</label>
     </div>
 
     <div class="checks">
-      <label><input type="checkbox" id="labels"> Ставити мітки пріоритету (P1 🔴 / P2 🟠 / P3 🟢)</label>
-      <label><input type="checkbox" id="auto"> Автоматично закривати пункт в епіку, коли всі його TODO-картки виконані</label>
+      <label><input type="checkbox" id="auto"> Auto-complete the epic item when all its TO&nbsp;DO cards are done</label>
     </div>
 
-    <button type="submit" class="mod-primary">Зберегти</button>
+    <button type="submit" class="mod-primary">Save</button>
   </form>
   <script src="./js/settings.js"></script>
 </body>
