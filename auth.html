@@ -16,7 +16,12 @@
     var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
     document.getElementById('go').addEventListener('click', function () {
       EpicAuth.authorize(t)
-        .then(function () { return t.closePopup(); })
+        .then(function () {
+          document.getElementById('go').hidden = true;
+          document.querySelector('p').textContent = '✓ Підключено. Це вікно можна закрити.';
+          // Trello can't close this popup when it was opened from the board-header menu.
+          Promise.resolve().then(function () { return t.closePopup(); }).catch(function () {});
+        })
         .catch(function (e) {
           var el = document.getElementById('err');
           el.hidden = false;
