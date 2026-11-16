@@ -1,0 +1,81 @@
+/* Epic Tasks — styles (kept close to Trello's own look) */
+:root {
+  --text: #172b4d;
+  --muted: #626f86;
+  --line: #dcdfe4;
+  --bg-soft: #f1f2f4;
+  --blue: #0c66e4;
+  --blue-soft: #e9f2ff;
+  --green: #1f845a;
+  --green-soft: #dcfff1;
+  --red: #c9372c;
+  --orange: #e56910;
+}
+html, body { margin: 0; padding: 0; background: transparent; color: var(--text);
+  font: 14px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, sans-serif; }
+#root { padding: 2px 2px 8px; }
+button { font: inherit; cursor: pointer; }
+.muted { color: var(--muted); padding: 8px 0; }
+.error { background: #ffeceb; color: #ae2e24; border-radius: 4px; padding: 6px 10px; margin: 6px 0; }
+.notice { background: #fff7d6; border-radius: 4px; padding: 6px 10px; margin: 6px 0; }
+
+.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.toolbar .spacer { flex: 1; }
+.toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; margin: 0; font-weight: 400; }
+.toggle input { margin: 0; }
+.pill { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #ffeceb; color: var(--red); }
+button.icon { background: var(--bg-soft); border: 0; border-radius: 4px; width: 28px; height: 28px; padding: 0; margin: 0;
+  font-size: 15px; color: var(--muted); }
+button.icon:hover { background: var(--line); }
+button.link { background: none; border: 0; padding: 0; margin: 0; color: var(--blue); font-size: 12px; }
+button.link:hover { text-decoration: underline; }
+
+.cl { margin: 10px 0 14px; }
+.cl-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.cl-name { font-weight: 600; }
+.cl-count { color: var(--muted); font-size: 12px; }
+.bar { flex: 1; height: 6px; background: var(--bg-soft); border-radius: 3px; overflow: hidden; min-width: 40px; }
+.bar > span { display: block; height: 100%; background: var(--green); }
+ul { list-style: none; margin: 0; padding: 0; }
+
+.item { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-radius: 6px; border-left: 3px solid transparent; }
+.item:hover { background: var(--bg-soft); }
+.item.p1 { border-left-color: var(--red); }
+.item.p2 { border-left-color: var(--orange); }
+.item.p3 { border-left-color: var(--green); }
+.item > input[type=checkbox] { margin: 3px 0 0; width: 16px; height: 16px; flex: none; }
+.item.done .title { text-decoration: line-through; color: var(--muted); }
+
+select.prio { flex: none; width: 66px; height: 24px; min-height: 0; margin: 0; padding: 0 4px; font-size: 12px;
+  border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--text); }
+.body { flex: 1; min-width: 0; }
+.title { word-break: break-word; }
+.due { margin-left: 6px; font-size: 11px; color: var(--muted); background: var(--bg-soft); padding: 0 6px; border-radius: 3px; }
+.due.overdue { background: #ffeceb; color: var(--red); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 20px; padding: 0 8px; margin: 0;
+  border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--text); min-height: 0; height: 22px; }
+.chip .st { font-weight: 600; }
+.chip.add .st { color: var(--blue); }
+.chip.add:hover { background: var(--blue-soft); border-color: var(--blue); }
+.chip.linked { background: var(--blue-soft); border-color: transparent; }
+.chip.linked .st { color: var(--blue); }
+.chip.done { background: var(--green-soft); border-color: transparent; }
+.chip.done .st { color: var(--green); }
+.chip.me { box-shadow: inset 0 0 0 1px var(--blue); }
+.chip.ghost { border-style: dashed; color: var(--muted); }
+.chip.ghost:hover { color: var(--blue); border-color: var(--blue); }
+.chip.unknown { color: var(--muted); background: var(--bg-soft); }
+.chip.busy { color: var(--muted); }
+
+.auth { padding: 6px 0; }
+.auth p { margin: 0 0 8px; }
+
+/* popups */
+body.popup { padding: 4px 2px; }
+.popup label { display: block; margin: 10px 0 4px; font-weight: 400; }
+.popup select { width: 100%; }
+.checks label { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; }
+.checks input { margin-top: 3px; }
+.popup button.mod-primary { margin-top: 12px; width: 100%; }
