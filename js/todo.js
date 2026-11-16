@@ -29,9 +29,8 @@
       t.lists('id', 'name'),
       t.get('board', 'shared', 'cfg', {}),
       t.get('card', 'shared', 'links', {}),
-      t.get('card', 'shared', 'doneItems', []),
     ]).then(function (r) {
-      var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: r[4] || {}, links: r[5] || {}, doneItems: r[6] || [] };
+      var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: r[4] || {}, links: r[5] || {} };
       d.listName = {};
       d.lists.forEach(function (l) { d.listName[l.id] = l.name; });
       return api(t, 'GET', '/cards/' + d.card.id + '/checklists', {
