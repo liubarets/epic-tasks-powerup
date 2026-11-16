@@ -3,9 +3,9 @@
   'use strict';
 
   var PRIORITIES = [
-    { level: 1, emoji: '🔴', short: 'P1', title: 'Терміново', labelName: 'P1 🔴', color: 'red' },
-    { level: 2, emoji: '🟠', short: 'P2', title: 'Важливо', labelName: 'P2 🟠', color: 'orange' },
-    { level: 3, emoji: '🟢', short: 'P3', title: 'Може почекати', labelName: 'P3 🟢', color: 'green' },
+    { level: 1, emoji: '🔴', short: 'P1', title: 'Urgent' },
+    { level: 2, emoji: '🟠', short: 'P2', title: 'Important' },
+    { level: 3, emoji: '🟢', short: 'P3', title: 'Can wait' },
   ];
   var PRIO_RE = /^\s*(🔴|🟠|🟢)️?\s*/u;
   // @username: Trello usernames = letters, digits, underscore. Must follow start/space/bracket
@@ -78,7 +78,7 @@
   }
 
   // Everyone who works on the item: mentioned/native assignees plus board members who took it
-  // via "Взяти собі" (they have a linked TODO card but are not mentioned in the item text).
+  // via "Assign to me" (they have a linked TO DO card but are not mentioned in the item text).
   function allAssignees(item, boardMembers, links) {
     var out = resolveAssignees(item, boardMembers);
     (boardMembers || []).forEach(function (m) {
@@ -132,14 +132,10 @@
     return level ? withPriority(name, level) : name;
   }
 
-  function todoCardDesc(epic, checklistName, itemName) {
-    return [
-      '**Епік:** [' + epic.name + '](' + epic.url + ')',
-      '**Чек-лист:** ' + checklistName,
-      '**Задача:** ' + cleanTitle(itemName),
-      '',
-      '_Створено Power-Up «Epic Tasks». Пункт лишився в епіку._',
-    ].join('\n');
+  // TO DO card description: "[Epic name](epic url) / Checklist name".
+  function todoCardDesc(epic, checklistName) {
+    var title = String(epic.name || '').replace(/([[\]\\])/g, '\\$1');
+    return '[' + title + '](' + epic.url + ') / ' + checklistName;
   }
 
   function byPos(a, b) { return (a.pos || 0) - (b.pos || 0); }
