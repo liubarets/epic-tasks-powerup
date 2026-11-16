@@ -78,7 +78,7 @@
     d.checklists.forEach(function (cl) {
       cl.checkItems.forEach(function (it) {
         if (it.state === 'complete') return;
-        var people = Core.resolveAssignees(it, d.board.members).filter(function (a) { return !a.unknown; });
+        var people = Core.allAssignees(it, d.board.members, d.links).filter(function (a) { return !a.unknown; });
         if (!people.length) return;
         var allDone = people.every(function (a) {
           return Core.isCardDone(linkedCard(d, it.id, a.id), d.cfg.doneListIds);
@@ -168,7 +168,7 @@
 
   // Keep already-created TODO cards in sync with the new priority (name emoji + label).
   function syncLinkedPriority(item, level) {
-    var people = Core.resolveAssignees(item, data.board.members).filter(function (a) { return !a.unknown; });
+    var people = Core.allAssignees(item, data.board.members, data.links).filter(function (a) { return !a.unknown; });
     var cards = people.map(function (a) { return linkedCard(data, item.id, a.id); })
       .filter(function (c) { return c && !Core.isCardDone(c, data.cfg.doneListIds); });
     if (!cards.length) return Promise.resolve();
@@ -224,12 +224,8 @@
   }
 
   function itemHtml(item) {
-    var people = Core.resolveAssignees(item, data.board.members);
-    // People who took the item via "Взяти собі" without being mentioned in it.
-    (data.board.members || []).forEach(function (m) {
-      if (people.some(function (a) { return a.id === m.id; })) return;
-      if (data.links[Core.linkKey(item.id, m.id)]) people.push({ id: m.id, username: m.username, fullName: m.fullName, unknown: false });
-    });
+    // Mentioned people + those who took the item via "Взяти собі".
+    var people = Core.allAssignees(item, data.board.members, data.links);
     var mine = people.some(function (a) { return data.me && a.id === data.me.id; });
     if (ui.mine && !mine) return '';
     var done = item.state === 'complete';
