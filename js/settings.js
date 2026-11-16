@@ -33,6 +33,8 @@
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    var btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
     var cfg = {
       todoListId: document.getElementById('todo').value,
       doneListIds: Array.prototype.map.call(form.querySelectorAll('input[name=done]:checked'), function (i) { return i.value; }),
@@ -40,6 +42,15 @@
       priorityLabels: document.getElementById('labels').checked,
       autoComplete: document.getElementById('auto').checked,
     };
-    t.set('board', 'shared', 'cfg', cfg).then(function () { return t.closePopup(); });
+    t.set('board', 'shared', 'cfg', cfg).then(function () {
+      btn.textContent = '✓ Збережено';
+      // From the board-header Power-Ups menu Trello can't close this popup
+      // ("No popover in context"), so the confirmation above is what the user sees.
+      Promise.resolve().then(function () { return t.closePopup(); }).catch(function () {});
+    }, function (err) {
+      btn.textContent = 'Не вдалося зберегти: ' + ((err && err.message) || err);
+    }).then(function () {
+      setTimeout(function () { btn.disabled = false; btn.textContent = 'Зберегти'; }, 2000);
+    });
   });
 })();
