@@ -138,30 +138,34 @@
     return !!card && !isCardCancelled(card, doneListIds) && (card.idMembers || []).indexOf(memberId) !== -1;
   }
 
-  // Keeps epic items in step with their TO DO cards. `items`: [{ id, state, people }], where every
-  // person (a board-member assignee) has done: true (card in Done), false (live card outside Done)
-  // or null (no live card). `tracked`: keys of items seen complete with all their cards in Done.
-  // - An open item whose people all have cards in Done is ticked (and tracked).
-  // - A tracked item with a card that was moved out of Done again is unticked.
-  // - Items ticked by hand while their cards were still open are never tracked, so they are left alone.
-  function planItemSync(items, tracked) {
-    var was = {};
-    (tracked || []).forEach(function (k) { was[k] = 1; });
-    var out = { tick: [], untick: [], tracked: [] };
-    (items || []).forEach(function (it) {
-      var k = String(it.id).slice(-10);
-      var people = it.people || [];
-      var allDone = people.length > 0 && people.every(function (p) { return p.done === true; });
-      var reopened = people.some(function (p) { return p.done === false; });
-      if (it.state === 'complete') {
-        if (was[k] && reopened) out.untick.push(it.id);
-        else if (was[k] || allDone) out.tracked.push(k);
-      } else if (allDone) {
-        out.tick.push(it.id);
-        out.tracked.push(k);
-      }
-    });
-    return out;
+  // When the item was last ticked, from the epic's "updateCheckItemStateOnCard" actions
+  // (newest first, as Trello returns them). ISO date string or null.
+  function lastTicked(epicActions, itemId) {
+    var list = epicActions || [];
+    for (var i = 0; i < list.length; i++) {
+      var ci = list[i].data && list[i].data.checkItem;
+      if (ci && ci.id === itemId && ci.state === 'complete') return list[i].date;
+    }
+    return null;
+  }
+
+  // When the card last left a Done list for a list outside Done, from its "updateCard:idList"
+  // actions (newest first). ISO date string or null.
+  function lastLeftDone(cardActions, doneListIds) {
+    var done = doneListIds || [];
+    var list = cardActions || [];
+    for (var i = 0; i < list.length; i++) {
+      var d = list[i].data || {};
+      var from = d.listBefore && d.listBefore.id, to = d.listAfter && d.listAfter.id;
+      if (done.indexOf(from) !== -1 && done.indexOf(to) === -1) return list[i].date;
+    }
+    return null;
+  }
+
+  // A ticked item is reopened when one of its cards left Done after the item was ticked.
+  // If someone ticks the item again by hand after that, it stays ticked.
+  function shouldReopen(tickedAt, leftDoneAt) {
+    return !!leftDoneAt && (!tickedAt || leftDoneAt > tickedAt);
   }
 
   function todoCardName(itemName, checklistName) {
@@ -196,7 +200,9 @@
     isCardDone: isCardDone,
     isCardCancelled: isCardCancelled,
     isLinkAlive: isLinkAlive,
-    planItemSync: planItemSync,
+    lastTicked: lastTicked,
+    lastLeftDone: lastLeftDone,
+    shouldReopen: shouldReopen,
     todoCardName: todoCardName,
     todoCardDesc: todoCardDesc,
     byPos: byPos,
