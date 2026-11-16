@@ -40,7 +40,7 @@
 
   function request(t, method, path, params) {
     return getToken(t).then(function (token) {
-      if (!token) throw AuthError('Потрібне підключення до Trello');
+      if (!token) throw AuthError('Connect to Trello first.');
       var base = useOAuth2 ? 'https://trello.com/1' : 'https://api.trello.com/1';
       var url = new URL(base + path);
       var headers = {};
@@ -55,7 +55,7 @@
         if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
       });
       return fetch(url.toString(), { method: method, headers: headers }).then(function (res) {
-        if (res.status === 401) throw AuthError('Доступ відхилено (401). Підключіться заново.');
+        if (res.status === 401) throw AuthError('Access denied (401). Please reconnect.');
         if (!res.ok) {
           return res.text().then(function (txt) {
             throw new Error('Trello API ' + res.status + ': ' + (txt || res.statusText));
