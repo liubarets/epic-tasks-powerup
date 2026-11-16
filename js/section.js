@@ -29,34 +29,47 @@
 
   function linkedCard(itemId, memberId) { return Todo.linkedCard(data, itemId, memberId); }
 
-  // Keeps epic items in step with their TO DO cards: ticks an item when all its cards are in Done
-  // and unticks it again when one of those cards is moved out of Done (see Core.planItemSync).
+  // Keeps epic items in step with their TO DO cards:
+  // - an open item whose assignees all have cards in Done is ticked;
+  // - a ticked item is unticked when one of its cards left Done after the item was ticked
+  //   (from Trello's action history, so manual ticks made after that are respected).
   function syncItems(d) {
     if (d.cfg.autoComplete === false) return Promise.resolve();
-    var items = [];
+    var done = d.cfg.doneListIds;
+    var jobs = [];
+    var candidates = []; // ticked items with a live card outside Done: [{ item, cards }]
+    function setState(it, state) {
+      it.state = state;
+      jobs.push(api('PUT', '/cards/' + d.card.id + '/checkItem/' + it.id, { state: state }));
+    }
     d.checklists.forEach(function (cl) {
       cl.checkItems.forEach(function (it) {
-        var people = Core.allAssignees(it, d.board.members, d.alive)
+        var cards = Core.allAssignees(it, d.board.members, d.alive)
           .filter(function (a) { return !a.unknown; })
-          .map(function (a) {
-            var c = Todo.linkedCard(d, it.id, a.id);
-            return { done: c ? Core.isCardDone(c, d.cfg.doneListIds) : null };
-          });
-        items.push({ id: it.id, state: it.state, people: people });
+          .map(function (a) { return Todo.linkedCard(d, it.id, a.id); });
+        if (it.state !== 'complete') {
+          if (cards.length && cards.every(function (c) { return Core.isCardDone(c, done); })) setState(it, 'complete');
+          return;
+        }
+        var open = cards.filter(function (c) { return c && !Core.isCardDone(c, done); });
+        if (open.length) candidates.push({ item: it, cards: open });
       });
     });
-    var plan = Core.planItemSync(items, d.doneItems);
-    var jobs = [];
-    function setState(id, state) {
-      var f = Todo.findItem(d, id);
-      if (f) f.item.state = state;
-      jobs.push(api('PUT', '/cards/' + d.card.id + '/checkItem/' + id, { state: state }));
-    }
-    plan.tick.forEach(function (id) { setState(id, 'complete'); });
-    plan.untick.forEach(function (id) { setState(id, 'incomplete'); });
-    var changed = plan.tracked.slice().sort().join() !== (d.doneItems || []).slice().sort().join();
-    return Promise.all(jobs).then(function () {
-      if (changed) return t.set('card', 'shared', 'doneItems', plan.tracked);
+    if (!candidates.length) return Promise.all(jobs);
+    return Promise.all([
+      api('GET', '/cards/' + d.card.id + '/actions', { filter: 'updateCheckItemStateOnCard', limit: 1000, fields: 'date,data' }),
+      Promise.all(candidates.map(function (x) {
+        return Promise.all(x.cards.map(function (c) {
+          return api('GET', '/cards/' + c.id + '/actions', { filter: 'updateCard:idList', limit: 100, fields: 'date,data' });
+        }));
+      })),
+    ]).then(function (r) {
+      candidates.forEach(function (x, i) {
+        var tickedAt = Core.lastTicked(r[0], x.item.id);
+        var reopen = r[1][i].some(function (acts) { return Core.shouldReopen(tickedAt, Core.lastLeftDone(acts, done)); });
+        if (reopen) setState(x.item, 'incomplete');
+      });
+      return Promise.all(jobs);
     });
   }
 
