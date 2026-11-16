@@ -77,6 +77,19 @@
     return out;
   }
 
+  // Everyone who works on the item: mentioned/native assignees plus board members who took it
+  // via "Взяти собі" (they have a linked TODO card but are not mentioned in the item text).
+  function allAssignees(item, boardMembers, links) {
+    var out = resolveAssignees(item, boardMembers);
+    (boardMembers || []).forEach(function (m) {
+      if (out.some(function (a) { return a.id === m.id; })) return;
+      if (links && links[linkKey(item.id, m.id)]) {
+        out.push({ id: m.id, username: m.username, fullName: m.fullName, unknown: false, taken: true });
+      }
+    });
+    return out;
+  }
+
   // Stable sort: P1, P2, P3, then items without priority; ties keep current order.
   function sortByPriority(items) {
     return items
@@ -140,6 +153,7 @@
     parseMentions: parseMentions,
     cleanTitle: cleanTitle,
     resolveAssignees: resolveAssignees,
+    allAssignees: allAssignees,
     sortByPriority: sortByPriority,
     sameOrder: sameOrder,
     linkKey: linkKey,
