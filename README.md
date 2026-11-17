@@ -22,7 +22,7 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 | TO DO card | Name: `🔴 Approve with legal — Merch launch`. Member: the assignee. Description: `[Epic name](epic link) / Checklist name`. Due date: from the item. Attachment: link to the epic. No labels — the emoji in the name is the priority. |
 | Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. The link counts only while the card exists and the person is still a member of it: if they remove themselves from the card (or the card is deleted), the item shows "＋ TO DO" for them again. |
 | Priority change | Updates the item and the emoji in TO DO cards that are not done yet. |
-| "Add all to TO DO" | The button sits in the TASKS header. Trello draws it, so it can't show a counter. A click opens a menu with the checklists that have something to add and how many cards each will create, plus "All tasks" (every checklist at once) when more than one does. One card per open item × assignee that doesn't have a card yet; items without assignees and people who are not board members are skipped. When there is nothing to add, Trello shows a short notice instead of the menu. |
+| "Add all to TO DO" | The button sits in the TASKS header. Trello draws it, so it can't show a counter. A click opens a menu with the checklists that have something to add and how many cards each will create, plus "All tasks" (every checklist at once) when more than one does. One card per open item × assignee that doesn't have a card yet; items without assignees and people who are not board members are skipped. The cards are created in the background while the board is open: the menu shows the progress ("Adding TO DO cards… 2/5"), you can close it at any time, reopening it shows the progress again, and Trello shows a notice when all cards are created. When there is nothing to add, the menu says so. |
 | Auto-complete | When every assignee of an item has a TO DO card and all of them are in a "Done" list, the item in the epic is ticked. If one of those cards is later moved out of Done (e.g. back to In progress), the item is unticked again; the Power-Up checks this against Trello's activity history, so it also catches moves made while nobody had the epic open. An item you tick by hand while a card is still open (including after a card was moved back) is left alone. Only moving a card to Done completes it: a card archived from TO DO / In progress counts as cancelled (the item stays open and the chip shows "＋ TO DO" again), while a card archived from Done stays done. This happens when someone opens the epic. Can be turned off in settings. |
 
 ---
@@ -110,8 +110,8 @@ js/core.js          logic (priorities, mentions, sorting)
 js/todo.js          loading the epic, link validity, creating TO DO cards
 js/auth.js          authorization + REST
 js/section.js       section UI
-js/client.js        connector + "Add all to TO DO" header button
-js/addall.js        "Add to TO DO" menu UI
+js/client.js        connector + "Add all to TO DO" header button (runs the job in the background)
+js/addall.js        "Add to TO DO" menu + progress
 js/settings.js      settings UI
 css/style.css
 img/icon-gray.svg
