@@ -13,6 +13,39 @@
 
   function api(method, path, params) { return Todo.api(t, method, path, params); }
 
+  // Hands REST calls to the connector (client.js), which stays loaded while the board is open,
+  // so they finish even if the epic is closed right after the click. Without an answer from it
+  // (e.g. an old cached version) the calls run here.
+  var channel = null;
+  try { channel = new BroadcastChannel('epic-tasks-addall'); } catch (e) { channel = null; }
+  var pendingOps = {};
+  if (channel) {
+    channel.onmessage = function (ev) {
+      var m = ev.data || {};
+      var p = m.id && pendingOps[m.id];
+      if (!p) return;
+      if (m.type === 'ops-ack') p.acked = true;
+      else if (m.type === 'ops-done') { delete pendingOps[m.id]; if (m.error) p.reject(new Error(m.error)); else p.resolve(); }
+    };
+  }
+
+  function runOps(ops) {
+    function here() {
+      return ops.reduce(function (p, op) { return p.then(function () { return api(op.method, op.path, op.params); }); }, Promise.resolve());
+    }
+    if (!channel || !ops.length) return here();
+    return new Promise(function (resolve, reject) {
+      var id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      var p = pendingOps[id] = { acked: false, resolve: resolve, reject: reject };
+      channel.postMessage({ type: 'ops', id: id, ops: ops });
+      setTimeout(function () {
+        if (p.acked || !pendingOps[id]) return;
+        delete pendingOps[id];
+        here().then(resolve, reject);
+      }, 700);
+    });
+  }
+
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -75,24 +108,24 @@
 
   // ------------------------------------------------------------------ actions
 
+  // The item and its linked TO DO cards (not done yet) get the new emoji, wherever it stands in the name.
+  // The change is shown at once and finished in the background (see runOps).
   function setPriority(itemId, level) {
     var f = Todo.findItem(data, itemId);
     if (!f) return Promise.resolve();
     var newName = Core.withPriority(f.item.name, level);
-    return api('PUT', '/cards/' + data.card.id + '/checkItem/' + itemId, { name: newName }).then(function () {
-      f.item.name = newName;
-      return syncLinkedPriority(f.item, Number(level));
-    });
-  }
-
-  // Keep the emoji in already-created (not yet done) TO DO cards in sync with the item.
-  function syncLinkedPriority(item, level) {
-    var people = Core.allAssignees(item, data.board.members, data.alive).filter(function (a) { return !a.unknown; });
-    var cards = people.map(function (a) { return linkedCard(item.id, a.id); })
-      .filter(function (c) { return c && !Core.isCardDone(c, data.cfg.doneListIds); });
-    return Promise.all(cards.map(function (c) {
-      return api('PUT', '/cards/' + c.id, { name: Core.withPriority(c.name, level) });
-    }));
+    var ops = [{ method: 'PUT', path: '/cards/' + data.card.id + '/checkItem/' + itemId, params: { name: newName } }];
+    Core.allAssignees(f.item, data.board.members, data.alive)
+      .filter(function (a) { return !a.unknown; })
+      .map(function (a) { return linkedCard(itemId, a.id); })
+      .filter(function (c, i, all) { return c && !Core.isCardDone(c, data.cfg.doneListIds) && all.indexOf(c) === i; })
+      .forEach(function (c) {
+        c.name = Core.withPriority(c.name, level);
+        ops.push({ method: 'PUT', path: '/cards/' + c.id, params: { name: c.name } });
+      });
+    f.item.name = newName;
+    render();
+    return runOps(ops);
   }
 
   function sortChecklist(clId) {
@@ -101,11 +134,9 @@
     var sorted = Core.sortByPriority(cl.checkItems);
     if (Core.sameOrder(sorted, cl.checkItems)) return Promise.resolve();
     // Sequential "bottom" moves give a deterministic final order.
-    return sorted.reduce(function (p, it) {
-      return p.then(function () {
-        return api('PUT', '/cards/' + data.card.id + '/checkItem/' + it.id, { pos: 'bottom' });
-      });
-    }, Promise.resolve());
+    return runOps(sorted.map(function (it) {
+      return { method: 'PUT', path: '/cards/' + data.card.id + '/checkItem/' + it.id, params: { pos: 'bottom' } };
+    }));
   }
 
   // ------------------------------------------------------------------ render
@@ -260,7 +291,6 @@
     var el = e.target;
     var a = el.getAttribute('data-action');
     if (a === 'prio') {
-      el.disabled = true;
       run(setPriority(el.getAttribute('data-item'), Number(el.value)));
     } else if (a === 'mine') {
       ui.mine = el.checked; render();
