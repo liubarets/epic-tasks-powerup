@@ -75,9 +75,9 @@
     return data.members.filter(function (m) { return m.id === id; })[0] || null;
   }
 
+  // The person picked in the list; null until someone is picked (or after unpicking).
   function current() {
-    var p = data.person && personOf(data.person);
-    return p || personOf(data.me.id) || { id: data.me.id, fullName: data.me.fullName || 'Me', avatar: data.me.avatar, initials: data.me.initials };
+    return (data.person && personOf(data.person)) || null;
   }
 
   function stats(id) { return data.sum.by[id] || { points: 0, cards: 0, none: 0 }; }
@@ -100,16 +100,19 @@
   }
 
   function renderSum() {
-    var p = current(), s = stats(p.id);
+    var p = current();
+    // Nobody picked: the button invites to pick, the number is the whole list.
+    var s = p ? stats(p.id) : { points: data.sum.total, cards: data.sum.cards, none: data.sum.none };
+    var who = p
+      ? avatar(p, 'sp-av-28') + '<span class="sp-name">' + esc(p.fullName || p.username) + '</span>'
+      : '<span class="sp-av sp-av-28 sp-av-pick">&#931;</span><span class="sp-name sp-name-pick">Choose a person</span>';
     root.innerHTML =
       '<div class="sp">' +
         '<div class="sp-label">Person</div>' +
-        '<button type="button" class="sp-person" data-action="pick" aria-haspopup="listbox">' +
-          avatar(p, 'sp-av-28') + '<span class="sp-name">' + esc(p.fullName || p.username) + '</span>' + CHEV +
-        '</button>' +
+        '<button type="button" class="sp-person" data-action="pick" aria-haspopup="listbox">' + who + CHEV + '</button>' +
         '<div class="sp-sum">' +
           '<div class="sp-big">' + P.fmt(s.points) + '</div>' +
-          '<div class="sp-cap">story points in ' + esc(data.listName) + '</div>' +
+          '<div class="sp-cap">story points in ' + esc(data.listName) + (p ? '' : ' · everyone') + '</div>' +
           '<div class="sp-sub">' + esc(subline(s)) + '</div>' +
         '</div>' +
       '</div>';
@@ -146,7 +149,7 @@
   }
 
   function renderList() {
-    var cur = current().id;
+    var cur = (current() || {}).id;
     var opts = options();
     var html = opts.map(function (o, i) {
       var s = stats(o.m.id), on = o.m.id === cur;
@@ -180,6 +183,8 @@
     if (b.getAttribute('data-action') === 'back') { state.view = 'sum'; render(); return; }
     var id = b.getAttribute('data-id');
     if (id) {
+      // A click on the ticked person unpicks them (then the Σ button shows no number).
+      if (current() && current().id === id) id = '';
       data.person = id;
       state.view = 'sum';
       render();

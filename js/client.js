@@ -133,15 +133,42 @@
     });
   }
 
+  // The number as a square SVG icon; longer numbers get a smaller font so they still fit.
+  function numberIcon(txt, color) {
+    var fs = txt.length <= 2 ? 17 : txt.length === 3 ? 14 : txt.length === 4 ? 11.5 : 9;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><text x="12" y="12" dy="0.36em" text-anchor="middle"' +
+      ' font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Noto Sans,Ubuntu,sans-serif" font-size="' + fs + '"' +
+      ' font-weight="700" fill="' + color + '">' + txt + '</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
   function spPopup(t) {
     return t.popup({ title: 'Story points', url: './storypoints.html', height: 230 });
   }
 
   TrelloPowerUp.initialize({
+    // Trello draws header buttons as a 14×14 icon without text, so when a person is picked in the Σ window
+    // the icon itself shows their points in TO DO; otherwise it's Σ. The full text is the tooltip.
     'board-buttons': function (t) {
       return spCfg(t).then(function (c) {
         if (!c.on) return [];
-        return [{ icon: { dark: SIGMA_WHITE, light: SIGMA_DARK }, text: 'Story points', callback: spPopup }];
+        var plain = [{ icon: { dark: SIGMA_WHITE, light: SIGMA_DARK }, text: 'Story points', callback: spPopup }];
+        return Promise.all([
+          t.get('member', 'private', 'spPerson'),
+          t.board('members'),
+          t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems'),
+        ]).then(function (r) {
+          var pid = r[0], members = (r[1] && r[1].members) || [];
+          var person = pid === '_none' ? { fullName: 'No members' } : members.filter(function (m) { return m.id === pid; })[0];
+          if (!pid || !person) return plain;
+          var s = P.summarize(r[2], c.fieldId, c.todoListId).by[pid] || { points: 0 };
+          var txt = P.fmt(s.points);
+          return [{
+            icon: { dark: numberIcon(txt, '#FFFFFF'), light: numberIcon(txt, '#172B4D') },
+            text: 'Story points · ' + (person.fullName || person.username) + ': ' + txt,
+            callback: spPopup,
+          }];
+        }).catch(function () { return plain; });
       });
     },
 
