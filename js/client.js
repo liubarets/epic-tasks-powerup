@@ -45,7 +45,7 @@
         if (groups.length > 1) {
           var all = [];
           groups.forEach(function (g) { all = all.concat(g.jobs); });
-          items.unshift({ text: 'All checklists (' + all.length + ')', callback: function () { return addJobs(t, d, all); } });
+          items.unshift({ text: 'All tasks (' + all.length + ')', callback: function () { return addJobs(t, d, all); } });
         }
         return t.popup({ title: 'Add to TO DO', items: items });
       });
