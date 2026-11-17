@@ -72,7 +72,7 @@ Commit `config.js`. The API key and the Client ID are public by design in Trello
 2. Power-Ups → Epic Tasks → **Authorize account** → "Connect" → Allow. Trello shows **Edit Power-Up settings** only after authorization. Alternatively use the ⚙ button in the "TASKS" section on a card.
 3. Power-Ups → Epic Tasks → **Edit Power-Up settings**:
    - **TO DO list**: where new cards go (e.g. `TO DO`).
-   - **Done lists**: e.g. `Done`.
+   - **Done lists**: e.g. `Done`. The TO DO list itself can't be a Done list (it is greyed out there).
    - New card position and auto-complete.
 
 ### 5. Every team member: one click
