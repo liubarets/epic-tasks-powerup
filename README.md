@@ -13,7 +13,7 @@ And **story points** for the board (turned on per board in settings):
 
 - The points live in Trello's own number field **"Story points"**. Each card shows them as a badge in its icon row (⚡ 5); TO DO cards without an estimate get a yellow ⚡ ?.
 - Typing `[3]` (or `[0.5]`, `[0,5]`) in a card title still works: the number is moved into the field and removed from the title.
-- The **Σ** button in the board header opens a window with one person's points in the TO DO list. A click on the name opens a list of people like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them. While a person is picked, the button in the header shows their number instead of Σ (it is recalculated when the board page is loaded — Trello doesn't refresh header buttons on its own).
+- The **Σ** button in the board header opens a **panel at the bottom of the board**: the TO DO list, the picked person and their points ("Dmytro Voloshyn · 14 points · 5 cards"). The panel updates by itself while you work — when someone changes points, members or moves cards — and stays open (it reopens on its own the next time you open the board) until you close it with ×. A click on the person opens a list like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them (then the panel shows the total for everyone). The picked person is personal: everyone picks their own. While a person is picked, the Σ button itself shows their number too, but that one is recalculated only when the board page is loaded.
 - On the card back, the "Story points" badge opens quick values: 0.5, 1, 2, 3, 5, 8, 13, 21, No estimate.
 
 Installed **once per Workspace**. Nobody on the team needs a browser extension.
@@ -101,7 +101,7 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 - Trello mobile apps may not show custom Power-Up sections. Emoji priorities and TO DO cards are visible there as regular Trello data.
 - Assignees are taken from `@username` in the item text. If the person is not a board member, their chip is grey and inactive.
 - After an update, GitHub Pages may serve the old version from cache for up to 10 minutes.
-- Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the Σ window and the Σ button is an icon among the others. Card badges always come after Trello's own icons.
+- Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the panel at the bottom of the board and the Σ button is an icon among the others. Card badges always come after Trello's own icons.
 
 ## Security
 
@@ -114,7 +114,8 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 index.html          connector (registers capabilities)
 section.html        "TASKS" section
 settings.html       board settings
-storypoints.html    Σ window: one person's points, person picker
+spbar.html          story points panel at the bottom of the board
+storypoints.html    person list (opened from the panel)
 spedit.html         quick story point values (card back badge)
 addall.html         "Add to TO DO" menu (opened from the TASKS header)
 auth.html           connect window
@@ -128,7 +129,8 @@ js/client.js        connector + "Add all to TO DO" header button (runs the job i
 js/addall.js        "Add to TO DO" menu + progress
 js/settings.js      settings UI
 js/points.js        story points: [n] parsing, the field, sums, moving [n] into the field
-js/storypoints.js   Σ window
+js/spbar.js         story points panel (live)
+js/storypoints.js   person list
 js/spedit.js        quick values popup
 css/style.css
 img/icon-gray.svg, img/sigma-*.svg, img/bolt.svg
