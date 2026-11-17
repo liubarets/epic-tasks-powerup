@@ -18,7 +18,8 @@
       document.getElementById('todo').innerHTML = '<option value="">— choose —</option>' + lists.map(function (l) {
         return '<option value="' + esc(l.id) + '"' + (l.id === todoId ? ' selected' : '') + '>' + esc(l.name) + '</option>';
       }).join('');
-      var doneIds = cfg.doneListIds || lists.filter(function (l) { return /done|готов|викон/i.test(l.name); }).map(function (l) { return l.id; });
+      var doneIds = (cfg.doneListIds || lists.filter(function (l) { return /done|готов|викон/i.test(l.name); }).map(function (l) { return l.id; }))
+        .filter(function (id) { return id !== todoId; });
       document.getElementById('done').innerHTML = lists.map(function (l) {
         return '<label><input type="checkbox" name="done" value="' + esc(l.id) + '"' +
           (doneIds.indexOf(l.id) !== -1 ? ' checked' : '') + '> ' + esc(l.name) + '</label>';
@@ -26,9 +27,23 @@
       var pos = cfg.position === 'bottom' ? 'bottom' : 'top';
       form.querySelector('input[name=pos][value=' + pos + ']').checked = true;
       document.getElementById('auto').checked = cfg.autoComplete !== false;
+      syncDoneWithTodo();
       return t.sizeTo(document.body);
     });
   });
+
+  // The TO DO list can't also be a "Done" list: new cards land there, so they would count as done at once.
+  function syncDoneWithTodo() {
+    var todo = document.getElementById('todo').value;
+    Array.prototype.forEach.call(form.querySelectorAll('input[name=done]'), function (cb) {
+      var isTodo = !!todo && cb.value === todo;
+      cb.disabled = isTodo;
+      if (isTodo) cb.checked = false;
+      cb.parentNode.style.opacity = isTodo ? '0.5' : '';
+      cb.parentNode.title = isTodo ? 'This is the TO DO list, so it can\'t count as done' : '';
+    });
+  }
+  document.getElementById('todo').addEventListener('change', syncDoneWithTodo);
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -36,7 +51,8 @@
     btn.disabled = true;
     var cfg = {
       todoListId: document.getElementById('todo').value,
-      doneListIds: Array.prototype.map.call(form.querySelectorAll('input[name=done]:checked'), function (i) { return i.value; }),
+      doneListIds: Array.prototype.map.call(form.querySelectorAll('input[name=done]:checked'), function (i) { return i.value; })
+        .filter(function (id) { return id !== document.getElementById('todo').value; }),
       position: form.querySelector('input[name=pos]:checked').value,
       autoComplete: document.getElementById('auto').checked,
     };
