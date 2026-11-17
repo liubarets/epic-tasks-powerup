@@ -89,21 +89,26 @@
       });
     });
     if (!candidates.length) return Promise.all(jobs);
-    return Promise.all([
-      api('GET', '/cards/' + d.card.id + '/actions', { filter: 'updateCheckItemStateOnCard', limit: 1000, fields: 'date,data' }),
-      Promise.all(candidates.map(function (x) {
-        return Promise.all(x.cards.map(function (c) {
-          return api('GET', '/cards/' + c.id + '/actions', { filter: 'updateCard:idList', limit: 100, fields: 'date,data' });
-        }));
-      })),
-    ]).then(function (r) {
-      candidates.forEach(function (x, i) {
-        var tickedAt = Core.lastTicked(r[0], x.item.id);
-        var reopen = r[1][i].some(function (acts) { return Core.shouldReopen(tickedAt, Core.lastLeftDone(acts, done)); });
-        if (reopen) setState(x.item, 'incomplete');
-      });
-      return Promise.all(jobs);
-    });
+    // 1) When did those cards last leave Done? One batched request for all of them.
+    var cards = [];
+    candidates.forEach(function (x) { x.cards.forEach(function (c) { if (cards.indexOf(c) === -1) cards.push(c); }); });
+    return Todo.moveHistory(t, cards.map(function (c) { return c.id; })).then(function (hist) {
+      var leftAt = {};
+      cards.forEach(function (c, i) { leftAt[c.id] = Core.lastLeftDone(hist[i], done); });
+      var moved = candidates.filter(function (x) { return x.cards.some(function (c) { return leftAt[c.id]; }); });
+      if (!moved.length) return null;  // no card left Done: nothing to reopen, no need for the epic's history
+      // 2) Only then: the epic's ticks since the earliest of those moves (a tick before it means "reopen").
+      var since = moved.map(function (x) {
+        return x.cards.map(function (c) { return leftAt[c.id]; }).filter(Boolean).sort()[0];
+      }).sort()[0];
+      return api('GET', '/cards/' + d.card.id + '/actions', { filter: 'updateCheckItemStateOnCard', since: since, limit: 1000, fields: 'date,data' })
+        .then(function (ticks) {
+          moved.forEach(function (x) {
+            var tickedAt = Core.lastTicked(ticks, x.item.id);
+            if (x.cards.some(function (c) { return Core.shouldReopen(tickedAt, leftAt[c.id]); })) setState(x.item, 'incomplete');
+          });
+        });
+    }).then(function () { return Promise.all(jobs); });
   }
 
   // ------------------------------------------------------------------ actions
@@ -239,7 +244,20 @@
     resize();
   }
 
+  // Trello re-renders the section when Power-Up data changes, often right after our own refresh:
+  // overlapping refreshes are merged into one more run after the current one.
+  var refreshing = null;
+  var refreshAgain = false;
   function refresh() {
+    if (refreshing) { refreshAgain = true; return refreshing; }
+    refreshing = doRefresh().then(function () {
+      refreshing = null;
+      if (refreshAgain) { refreshAgain = false; return refresh(); }
+    });
+    return refreshing;
+  }
+
+  function doRefresh() {
     return EpicAuth.isAuthorized(t).then(function (ok) {
       if (!ok) { data = null; renderAuth(); return; }
       return Todo.load(t).then(function (d) {
