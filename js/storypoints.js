@@ -11,7 +11,11 @@
   var BOLT = '<svg class="sp-bolt" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2L4.5 14h6.5l-1 8 9-12h-6.5z" fill="currentColor"/></svg>';
   var CHEV = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var SEARCH = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-  var state = { view: 'sum', q: '' };
+  // mode "pick": opened from the panel at the bottom of the board, shows only the person list.
+  var mode = (t.arg && t.arg('mode')) || '';
+  var state = mode === 'pick' ? { view: 'pick', q: '', focus: true } : { view: 'sum', q: '' };
+  var channel = null;
+  try { channel = new BroadcastChannel('epic-tasks-sp'); } catch (e) { channel = null; }
   var data = null;
 
   function esc(s) {
@@ -135,7 +139,7 @@
     var tot = data.sum;
     root.innerHTML =
       '<div class="sp">' +
-        '<button type="button" class="sp-back" data-action="back">‹ Back</button>' +
+        (mode === 'pick' ? '' : '<button type="button" class="sp-back" data-action="back">‹ Back</button>') +
         '<div class="sp-total">' +
           '<span class="sp-sigma">&#931;</span>' +
           '<span class="sp-total-text"><b>Total in ' + esc(data.listName) + '</b><span>' + esc(subline({ cards: tot.cards, none: tot.none })) + '</span></span>' +
@@ -188,6 +192,14 @@
       // A click on the ticked person unpicks them (then the Σ button shows no number).
       if (current() && current().id === id) id = '';
       data.person = id;
+      if (mode === 'pick') {
+        // Picked from the panel: save, tell the panel, close this popup.
+        Promise.resolve(t.set('member', 'private', 'spPerson', id)).catch(function () {}).then(function () {
+          if (channel) channel.postMessage({ type: 'person', id: id });
+          return t.closePopup();
+        });
+        return;
+      }
       state.view = 'sum';
       state.changed = true;
       render();

@@ -142,8 +142,24 @@
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
 
+  // The Σ button opens the story points panel at the bottom of the board. The panel stays open while you
+  // work and reopens by itself next time you open the board, until you close it.
+  var autoTried = false;
+  function openBar(t) {
+    return t.boardBar({
+      url: './spbar.html', height: 48, title: 'Story points',
+      callback: function () { return Promise.resolve(t.set('member', 'private', 'spBar', false)).catch(function () {}); },
+    });
+  }
   function spPopup(t) {
-    return t.popup({ title: 'Story points', url: './storypoints.html', height: 230 });
+    var bar = openBar(t);
+    Promise.resolve(t.set('member', 'private', 'spBar', true)).catch(function () {});
+    return bar;
+  }
+  function autoOpen(t) {
+    if (autoTried) return;
+    autoTried = true;
+    Promise.resolve(t.get('member', 'private', 'spBar')).then(function (on) { return on ? openBar(t) : null; }).catch(function () {});
   }
 
   TrelloPowerUp.initialize({
@@ -152,6 +168,7 @@
     'board-buttons': function (t) {
       return spCfg(t).then(function (c) {
         if (!c.on) return [];
+        autoOpen(t);
         var plain = [{ icon: { dark: SIGMA_WHITE, light: SIGMA_DARK }, text: 'Story points', callback: spPopup }];
         return Promise.all([
           t.get('member', 'private', 'spPerson'),
