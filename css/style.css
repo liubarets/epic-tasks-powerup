@@ -78,6 +78,14 @@ body.popup { padding: 4px 2px; }
 .checks input { margin-top: 2px; }
 .popup button.mod-primary { margin-top: 12px; width: 100%; }
 
+/* "Add to TO DO" menu popup — looks like Trello's own list popups */
+.menu { list-style: none; margin: 0; padding: 0; }
+.menu button { display: block; width: 100%; margin: 0; padding: 6px 8px; border: 0; border-radius: 3px;
+  background: none; color: var(--text); font-size: 14px; text-align: left; }
+.menu button:hover { background: var(--bg-soft); }
+.msg { margin: 4px 0 8px; }
+.msg.error { color: #ae2e24; }
+
 /* Checkboxes & radios styled like Trello's own: light, thin border, blue when checked */
 input[type=checkbox], input[type=radio] {
   -webkit-appearance: none; appearance: none;
