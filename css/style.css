@@ -169,3 +169,18 @@ button.sp-clear:hover { background: var(--line); }
 .sp-row.on .sp-pill { background: #fff; }
 .sp-av-pick { background: var(--blue); font-size: 14px; }
 .sp-name-pick { color: var(--blue); }
+
+/* Story points panel at the bottom of the board */
+body.spbar-body { margin: 0; padding: 0; background: #fff; }
+.spbar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; box-sizing: border-box; white-space: nowrap; overflow: hidden; }
+.spbar-pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 12px; background: var(--bg-soft);
+  color: #44546f; font-size: 12px; font-weight: 600; }
+button.spbar-person { display: inline-flex; align-items: center; gap: 8px; height: 36px; margin: 0; padding: 0 8px 0 6px; border: 0;
+  border-radius: 6px; background: var(--bg-soft); color: var(--text); font-size: 14px; font-weight: 600; }
+button.spbar-person:hover { background: var(--line); }
+.spbar-person svg { color: #44546f; flex: none; }
+.spbar-sep { width: 1px; height: 24px; background: var(--line); flex: none; }
+.spbar-num { font-size: 26px; font-weight: 700; line-height: 1; color: var(--blue); }
+.spbar-unit { margin-left: -6px; font-size: 14px; font-weight: 600; }
+.spbar-sub { font-size: 13px; color: var(--muted); }
+.spbar-msg { font-size: 13px; color: var(--muted); }
