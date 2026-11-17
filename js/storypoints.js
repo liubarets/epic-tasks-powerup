@@ -119,8 +119,6 @@
           '<div class="sp-cap">story points in ' + esc(data.listName) + (p ? '' : ' · everyone') + '</div>' +
           '<div class="sp-sub">' + esc(subline(s)) + '</div>' +
         '</div>' +
-        // Trello asks for the header button only when the board loads, so a new pick shows there after a reload.
-        (state.changed ? '<p class="sp-hint sp-hint-reload">The number on the &#931; button in the board header updates after you reload the page.</p>' : '') +
       '</div>';
   }
 
@@ -189,7 +187,7 @@
     if (b.getAttribute('data-action') === 'back') { state.view = 'sum'; render(); return; }
     var id = b.getAttribute('data-id');
     if (id) {
-      // A click on the ticked person unpicks them (then the Σ button shows no number).
+      // A click on the ticked person unpicks them (then the total for everyone is shown).
       if (current() && current().id === id) id = '';
       data.person = id;
       if (mode === 'pick') {
@@ -201,7 +199,6 @@
         return;
       }
       state.view = 'sum';
-      state.changed = true;
       render();
       Promise.resolve(t.set('member', 'private', 'spPerson', id)).catch(function () {});
     }
