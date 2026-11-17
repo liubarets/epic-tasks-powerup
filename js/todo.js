@@ -143,28 +143,55 @@
     });
   }
 
+  // Menu entries for "Add all to TO DO": one per checklist that has something to add, plus
+  // "All tasks" when more than one does. [{ key: 'all' | checklistId, text, jobs }]
+  function addAllOptions(d) {
+    var groups = d.checklists
+      .map(function (cl) { return { key: cl.id, text: cl.name, jobs: pendingInChecklist(d, cl) }; })
+      .filter(function (g) { return g.jobs.length; });
+    if (groups.length > 1) {
+      var all = [];
+      groups.forEach(function (g) { all = all.concat(g.jobs); });
+      groups.unshift({ key: 'all', text: 'All tasks', jobs: all });
+    }
+    return groups;
+  }
+
+  // Jobs for a menu choice, recomputed from fresh data ("all" also works when only one checklist is left).
+  function jobsFor(d, key) {
+    var opts = addAllOptions(d);
+    var hit = opts.filter(function (o) { return o.key === key; })[0];
+    if (!hit && key === 'all' && opts.length === 1) hit = opts[0];
+    return hit ? hit.jobs : [];
+  }
+
   // Creates cards for a list of jobs from pendingInChecklist(); resolves with the number created.
-  function addMany(t, d, jobs) {
+  // onProgress(done, total) is called after every card.
+  function addMany(t, d, jobs, onProgress) {
     var err = todoListError(d);
     if (err) return Promise.reject(err);
     jobs = jobs.slice();
     // With "top" placement each new card lands above the previous one,
     // so create in reverse to keep the checklist order in the TO DO list.
     if (d.cfg.position !== 'bottom') jobs.reverse();
-    var newLinks = {};
+    var unsaved = {};
     var n = 0;
+    function flush() { var nl = unsaved; unsaved = {}; return saveLinks(t, d, nl); }
     return jobs.reduce(function (p, j) {
       return p.then(function () {
         return createTodoCard(t, d, j.item, j.checklist, j.memberId).then(function (shortLink) {
-          newLinks[Core.linkKey(j.item.id, j.memberId)] = shortLink;
+          unsaved[Core.linkKey(j.item.id, j.memberId)] = shortLink;
           n++;
+          if (onProgress) onProgress(n, jobs.length);
+          // Save links in small batches, so nothing is lost if the board is closed half-way.
+          if (n % 5 === 0) return flush();
         });
       });
     }, Promise.resolve()).then(function () {
-      return saveLinks(t, d, newLinks).then(function () { return n; });
+      return flush().then(function () { return n; });
     }, function (e) {
       // Keep links to the cards created before the failure.
-      return saveLinks(t, d, newLinks).then(function () { throw e; });
+      return flush().then(function () { throw e; });
     });
   }
 
@@ -177,5 +204,7 @@
     todoListError: todoListError,
     addToTodo: addToTodo,
     addMany: addMany,
+    addAllOptions: addAllOptions,
+    jobsFor: jobsFor,
   };
 })(this);
