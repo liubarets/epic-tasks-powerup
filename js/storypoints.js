@@ -115,6 +115,8 @@
           '<div class="sp-cap">story points in ' + esc(data.listName) + (p ? '' : ' · everyone') + '</div>' +
           '<div class="sp-sub">' + esc(subline(s)) + '</div>' +
         '</div>' +
+        // Trello asks for the header button only when the board loads, so a new pick shows there after a reload.
+        (state.changed ? '<p class="sp-hint sp-hint-reload">The number on the &#931; button in the board header updates after you reload the page.</p>' : '') +
       '</div>';
   }
 
@@ -187,6 +189,7 @@
       if (current() && current().id === id) id = '';
       data.person = id;
       state.view = 'sum';
+      state.changed = true;
       render();
       Promise.resolve(t.set('member', 'private', 'spPerson', id)).catch(function () {});
     }
