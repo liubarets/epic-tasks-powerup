@@ -14,6 +14,7 @@ And **story points** for the board (turned on per board in settings):
 - The points live in Trello's own number field **"Story points"**. Each card shows them as a badge in its icon row (⚡ 5); TO DO cards without an estimate get a yellow ⚡ ?.
 - Typing `[3]` (or `[0.5]`, `[0,5]`) in a card title still works: the number is moved into the field and removed from the title.
 - The **Σ** button in the board header (a blue square with a white Σ) opens a **panel at the bottom of the board**: the TO DO list, the picked person and their points ("Dmytro Voloshyn · 14 points · 5 cards"). The panel updates by itself while you work — when someone changes points, members or moves cards — and stays open (it reopens on its own the next time you open the board) until you close it with ×. A click on the person opens a list like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them (then the panel shows the total for everyone). The picked person is personal: everyone picks their own.
+- **Estimating without opening cards:** the panel shows "3 unestimated" (or "All estimated"). A click opens a big window with the TO DO cards of the picked person, one row each with 0.5, 1, 2, 3, 5, 8, 13, 21. One click saves the value; cards estimated there stay listed with a ✓ until the window is closed. Tabs: "No estimate" and "All" (to change a value). The person can be changed in the window too. Setting values needs Epic Tasks to be connected.
 - On the card back, the "Story points" badge opens quick values: 0.5, 1, 2, 3, 5, 8, 13, 21, No estimate.
 
 Installed **once per Workspace**. Nobody on the team needs a browser extension.
@@ -116,6 +117,7 @@ section.html        "TASKS" section
 settings.html       board settings
 spbar.html          story points panel at the bottom of the board
 storypoints.html    person list (opened from the panel)
+estimate.html       "Estimate story points" window (opened from the panel)
 spedit.html         quick story point values (card back badge)
 addall.html         "Add to TO DO" menu (opened from the TASKS header)
 auth.html           connect window
@@ -131,6 +133,7 @@ js/settings.js      settings UI
 js/points.js        story points: [n] parsing, the field, sums, moving [n] into the field
 js/spbar.js         story points panel (live)
 js/storypoints.js   person list
+js/estimate.js      "Estimate story points" window
 js/spedit.js        quick values popup
 css/style.css
 img/icon-gray.svg, img/sigma-badge.svg (header button), img/bolt.svg
