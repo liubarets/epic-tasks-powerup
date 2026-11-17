@@ -1,7 +1,8 @@
 /* global TrelloPowerUp, EpicAuth, EpicTodo */
 // Iframe connector: tells Trello which capabilities this Power-Up provides.
-// It stays loaded while the board is open, so it also runs "Add all to TO DO" in the background:
-// the "Add to TO DO" popup only picks what to add and shows progress, and closing it doesn't stop the job.
+// It stays loaded while the board is open, so it also runs work in the background:
+// - "Add all to TO DO": the popup only picks what to add and shows progress; closing it doesn't stop the job;
+// - priority changes and sorting from the TASKS section: they finish even if the epic is closed at once.
 (function () {
   'use strict';
   var ICON = new URL('./img/icon-gray.svg', window.location.href).href;
@@ -9,6 +10,8 @@
   var contexts = {};  // popup token -> { t, ready: Promise<cardId> }
   var tokens = [];
   var jobs = {};      // cardId -> { total, done, finished, error }
+  var lastT = null;   // any recent context: REST calls only need the member's token
+  var queue = Promise.resolve();
   var channel = null;
   try { channel = new BroadcastChannel('epic-tasks-addall'); } catch (e) { channel = null; }
 
@@ -47,9 +50,28 @@
     }).catch(function () {});
   }
 
+  // REST calls handed over by the TASKS section (priority changes, sorting), so they finish even if
+  // the epic is closed right away. Run one after another, in the order they were made.
+  function runOps(m) {
+    var t = lastT;
+    post({ type: 'ops-ack', id: m.id });
+    queue = queue.then(function () {
+      return m.ops.reduce(function (p, op) {
+        return p.then(function () { return EpicTodo.api(t, op.method, op.path, op.params); });
+      }, Promise.resolve());
+    }).then(function () {
+      post({ type: 'ops-done', id: m.id });
+    }, function (e) {
+      var msg = (e && e.message) || String(e);
+      post({ type: 'ops-done', id: m.id, error: msg });
+      return Promise.resolve(t.alert({ message: 'Epic Tasks: ' + msg, display: 'error', duration: 10 })).catch(function () {});
+    });
+  }
+
   if (channel) {
     channel.onmessage = function (ev) {
       var m = ev.data || {};
+      if (m.type === 'ops') { if (lastT && m.ops && m.ops.length) runOps(m); return; }
       var ctx = m.token && contexts[m.token];
       if (!ctx) return;  // that popup belongs to another board tab
       ctx.ready.then(function (cardId) {
@@ -77,6 +99,7 @@
   TrelloPowerUp.initialize({
     // "TASKS" section on the card back — only on cards that have checklists.
     'card-back-section': function (t) {
+      lastT = t;
       return t.card('badges').then(function (card) {
         var b = (card && card.badges) || {};
         if (!b.checkItems) return null;
