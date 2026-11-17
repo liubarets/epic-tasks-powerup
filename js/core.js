@@ -7,7 +7,9 @@
     { level: 2, emoji: '🟠', short: 'P2', title: 'Important' },
     { level: 3, emoji: '🟢', short: 'P3', title: 'Can wait' },
   ];
-  var PRIO_RE = /^\s*(🔴|🟠|🟢)️?\s*/u;
+  // The priority emoji can stand anywhere in a name (people edit titles, e.g. "[5] 🟢 Video"),
+  // so it is looked up and replaced where it is. The first one counts.
+  var PRIO_RE = /(🔴|🟠|🟢)\ufe0f?/u;
   // @username: Trello usernames = letters, digits, underscore. Must follow start/space/bracket
   // so e-mails like a@b.com are not treated as mentions.
   var MENTION_RE = /(^|[\s(,;])@([A-Za-z0-9_]{2,})/g;
@@ -18,20 +20,30 @@
   }
 
   function parsePriority(name) {
-    var m = String(name || '').match(PRIO_RE);
+    var m = PRIO_RE.exec(String(name || ''));
     if (!m) return 0;
     for (var i = 0; i < PRIORITIES.length; i++) if (PRIORITIES[i].emoji === m[1]) return PRIORITIES[i].level;
     return 0;
   }
 
+  // Removes the priority emoji wherever it is, keeping the text around it tidy.
   function stripPriority(name) {
-    return String(name || '').replace(PRIO_RE, '');
+    var s = String(name || '');
+    var m = PRIO_RE.exec(s);
+    if (!m) return s;
+    var before = s.slice(0, m.index), after = s.slice(m.index + m[0].length);
+    if (!before.trim()) return after.replace(/^\s+/, '');
+    if (!after.trim()) return before.replace(/\s+$/, '');
+    return before.replace(/\s+$/, '') + ' ' + after.replace(/^\s+/, '');
   }
 
+  // Sets the priority: replaces the existing emoji in place, or puts a new one at the start.
   function withPriority(name, level) {
-    var base = stripPriority(name);
+    var s = String(name || '');
     var p = byLevel(Number(level));
-    return p ? p.emoji + ' ' + base : base;
+    var m = PRIO_RE.exec(s);
+    if (m) return p ? s.slice(0, m.index) + p.emoji + s.slice(m.index + m[0].length) : stripPriority(s);
+    return p ? p.emoji + ' ' + s : s;
   }
 
   function parseMentions(name) {
