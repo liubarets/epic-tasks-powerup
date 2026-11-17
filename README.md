@@ -102,6 +102,7 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 index.html          connector (registers capabilities)
 section.html        "TASKS" section
 settings.html       board settings
+addall.html         "Add to TO DO" menu (opened from the TASKS header)
 auth.html           connect window
 auth-redirect.html  OAuth 2.0 callback
 js/config.js        ← the only file you need to edit
@@ -110,6 +111,7 @@ js/todo.js          loading the epic, link validity, creating TO DO cards
 js/auth.js          authorization + REST
 js/section.js       section UI
 js/client.js        connector + "Add all to TO DO" header button
+js/addall.js        "Add to TO DO" menu UI
 js/settings.js      settings UI
 css/style.css
 img/icon-gray.svg
