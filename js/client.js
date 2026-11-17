@@ -1,4 +1,4 @@
-/* global TrelloPowerUp, EpicAuth, EpicTodo */
+/* global TrelloPowerUp, EpicAuth, EpicTodo, EpicPoints */
 // Iframe connector: tells Trello which capabilities this Power-Up provides.
 // It stays loaded while the board is open, so it also runs work in the background:
 // - "Add all to TO DO": the popup only picks what to add and shows progress; closing it doesn't stop the job;
@@ -96,7 +96,83 @@
     return popup;
   }
 
+  // ---- Story points ----
+  var P = window.EpicPoints;
+  var SIGMA_WHITE = new URL('./img/sigma-white.svg', window.location.href).href;
+  var SIGMA_DARK = new URL('./img/sigma-dark.svg', window.location.href).href;
+  var BOLT = new URL('./img/bolt.svg', window.location.href).href;
+  var spCache = null, spAt = 0;
+
+  // Settings + the field id, cached for a few seconds: card-badges asks once per card.
+  function spCfg(t) {
+    if (spCache && Date.now() - spAt < 3000) return spCache;
+    spAt = Date.now();
+    spCache = Promise.all([t.get('board', 'shared', 'cfg', {}), t.board('customFields')]).then(function (r) {
+      var cfg = r[0] || {}, sp = cfg.sp || {};
+      var f = P.findField((r[1] || {}).customFields, cfg);
+      return { on: !!sp.on, migrate: !!sp.migrate && !!f, fieldId: f ? f.id : null, todoListId: cfg.todoListId };
+    }).catch(function () { return { on: false }; });
+    return spCache;
+  }
+
+  // "[3] Banner" typed in a title → field = 3, title = "Banner". Runs in the session of anyone who
+  // connected Epic Tasks; one card at a time. Several open sessions doing the same card is harmless.
+  var moving = {};
+  var moveQueue = Promise.resolve();
+  function wait(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
+  function maybeMove(t, card, c) {
+    if (!c.migrate || P.parse(card.name) == null || moving[card.id]) return;
+    moving[card.id] = true;
+    moveQueue = moveQueue.then(function () {
+      return EpicAuth.isAuthorized(t);
+    }).then(function (ok) {
+      return ok ? P.migrate(t, card, c.fieldId) : false;
+    }).catch(function () { /* next render tries again */ }).then(function () {
+      setTimeout(function () { delete moving[card.id]; }, 10000);
+      return wait(150);
+    });
+  }
+
+  function spPopup(t) {
+    return t.popup({ title: 'Story points', url: './storypoints.html', height: 230 });
+  }
+
   TrelloPowerUp.initialize({
+    'board-buttons': function (t) {
+      return spCfg(t).then(function (c) {
+        if (!c.on) return [];
+        return [{ icon: { dark: SIGMA_WHITE, light: SIGMA_DARK }, text: 'Story points', callback: spPopup }];
+      });
+    },
+
+    'card-badges': function (t) {
+      return spCfg(t).then(function (c) {
+        if (!c.on) return [];
+        return t.card('id', 'name', 'idList', 'customFieldItems').then(function (card) {
+          maybeMove(t, card, c);
+          var v = P.cardPoints(card, c.fieldId);
+          if (v != null) return [{ text: P.fmt(v), icon: BOLT, color: 'blue' }];
+          return card.idList === c.todoListId ? [{ text: '?', icon: BOLT, color: 'yellow' }] : [];
+        });
+      });
+    },
+
+    'card-detail-badges': function (t) {
+      return spCfg(t).then(function (c) {
+        if (!c.on) return [];
+        return t.card('name', 'customFieldItems').then(function (card) {
+          var v = P.cardPoints(card, c.fieldId);
+          return [{
+            title: 'Story points',
+            text: v == null ? 'Add' : P.fmt(v),
+            color: v == null ? null : 'blue',
+            callback: function (tt) { return tt.popup({ title: 'Story points', url: './spedit.html', height: 170 }); },
+          }];
+        });
+      });
+    },
+
+
     // "TASKS" section on the card back — only on cards that have checklists.
     'card-back-section': function (t) {
       lastT = t;
@@ -113,7 +189,7 @@
     },
 
     'show-settings': function (t) {
-      return t.popup({ title: 'Epic Tasks — settings', url: './settings.html', height: 420 });
+      return t.popup({ title: 'Epic Tasks — settings', url: './settings.html', height: 560 });
     },
 
     'authorization-status': function (t) {

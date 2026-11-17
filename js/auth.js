@@ -38,7 +38,8 @@
 
   function AuthError(msg) { var e = new Error(msg); e.isAuthError = true; return e; }
 
-  function request(t, method, path, params) {
+  // params go to the query string; body (optional) is sent as JSON (custom fields need it).
+  function request(t, method, path, params, body) {
     return getToken(t).then(function (token) {
       if (!token) throw AuthError('Connect to Trello first.');
       var base = useOAuth2 ? 'https://trello.com/1' : 'https://api.trello.com/1';
@@ -54,7 +55,12 @@
         var v = params[k];
         if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
       });
-      return fetch(url.toString(), { method: method, headers: headers }).then(function (res) {
+      var init = { method: method, headers: headers };
+      if (body !== undefined && body !== null) {
+        headers['Content-Type'] = 'application/json';
+        init.body = JSON.stringify(body);
+      }
+      return fetch(url.toString(), init).then(function (res) {
         if (res.status === 401) throw AuthError('Access denied (401). Please reconnect.');
         if (!res.ok) {
           return res.text().then(function (txt) {
