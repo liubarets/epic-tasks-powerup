@@ -30,7 +30,10 @@
       t.get('board', 'shared', 'cfg', {}),
       t.get('card', 'shared', 'links', {}),
     ]).then(function (r) {
-      var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: r[4] || {}, links: r[5] || {} };
+      var cfg = r[4] || {};
+      // The TO DO list never counts as done, even if it was ticked under "Done lists" in older settings.
+      cfg.doneListIds = (cfg.doneListIds || []).filter(function (id) { return id !== cfg.todoListId; });
+      var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: cfg, links: r[5] || {} };
       d.listName = {};
       d.lists.forEach(function (l) { d.listName[l.id] = l.name; });
       return api(t, 'GET', '/cards/' + d.card.id + '/checklists', {
