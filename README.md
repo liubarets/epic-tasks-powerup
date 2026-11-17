@@ -13,7 +13,7 @@ And **story points** for the board (turned on per board in settings):
 
 - The points live in Trello's own number field **"Story points"**. Each card shows them as a badge in its icon row (⚡ 5); TO DO cards without an estimate get a yellow ⚡ ?.
 - Typing `[3]` (or `[0.5]`, `[0,5]`) in a card title still works: the number is moved into the field and removed from the title.
-- The **Σ** button in the board header opens a window with one person's points in the TO DO list. A click on the name opens a list of people like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name. The window remembers the last person.
+- The **Σ** button in the board header opens a window with one person's points in the TO DO list. A click on the name opens a list of people like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them. While a person is picked, the button in the header shows their number instead of Σ (it is recalculated when the board page is loaded — Trello doesn't refresh header buttons on its own).
 - On the card back, the "Story points" badge opens quick values: 0.5, 1, 2, 3, 5, 8, 13, 21, No estimate.
 
 Installed **once per Workspace**. Nobody on the team needs a browser extension.
