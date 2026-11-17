@@ -23,12 +23,16 @@
   function fmt(x) { return String(Math.round(Number(x) * 100) / 100); }
 
   // The board's "Story points" number field: the one saved in settings, otherwise found by name.
-  function findField(fields, cfg) {
+  // Trello's in-browser copy of the board learns about a new field only after a while, so a saved id
+  // is trusted even if the list doesn't have it yet (strict = only what the list really has).
+  function findField(fields, cfg, strict) {
     fields = fields || [];
     var id = cfg && cfg.sp && cfg.sp.fieldId;
     var saved = id && fields.filter(function (f) { return f.id === id; })[0];
     if (saved) return saved;
-    return fields.filter(function (f) { return f.type === 'number' && /^\s*story\s*points?\s*$/i.test(f.name || ''); })[0] || null;
+    var byName = fields.filter(function (f) { return f.type === 'number' && /^\s*story\s*points?\s*$/i.test(f.name || ''); })[0];
+    if (byName) return byName;
+    return id && !strict ? { id: id, name: FIELD_NAME, type: 'number' } : null;
   }
 
   function fieldValue(card, fieldId) {
@@ -84,9 +88,15 @@
       value == null ? { value: '' } : { value: { number: String(value) } });
   }
 
+  function boardFields(t, boardId) { return api(t, 'GET', '/boards/' + boardId + '/customFields'); }
+
+  // Reuses a "Story points" number field if the board already has one (no duplicates on a second click).
   function createField(t, boardId) {
-    return api(t, 'POST', '/customFields', null, {
-      idModel: boardId, modelType: 'board', name: FIELD_NAME, type: 'number', pos: 'top', display_cardFront: false,
+    return boardFields(t, boardId).then(function (fields) {
+      var found = findField(fields, null, true);
+      return found || api(t, 'POST', '/customFields', null, {
+        idModel: boardId, modelType: 'board', name: FIELD_NAME, type: 'number', pos: 'top', display_cardFront: false,
+      });
     });
   }
 
@@ -111,6 +121,7 @@
     summarize: summarize,
     cardsWord: cardsWord,
     setValue: setValue,
+    boardFields: boardFields,
     createField: createField,
     migrate: migrate,
   };

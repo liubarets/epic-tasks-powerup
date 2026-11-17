@@ -23,10 +23,15 @@
       t.board('id', 'customFields'),
       t.cards('id', 'name', 'closed'),
     ]).then(function (r) {
+      // Fields straight from Trello when connected: the in-browser copy may not know a new field yet.
+      board = r[2] || {};
+      return EpicAuth.isAuthorized(t).then(function (ok) {
+        return ok ? P.boardFields(t, board.id).catch(function () { return board.customFields; }) : board.customFields;
+      }).then(function (fields) { r.push(fields); return r; });
+    }).then(function (r) {
       var lists = r[0], cfg = r[1] || {};
       current = cfg;
-      board = r[2] || {};
-      field = P.findField(board.customFields, cfg);
+      field = P.findField(r[4], cfg, true);
       withN = (r[3] || []).filter(function (c) { return !c.closed && P.parse(c.name) != null; });
       var guess = lists.filter(function (l) { return /to\s*-?\s*do/i.test(l.name); })[0];
       var todoId = cfg.todoListId || (guess && guess.id) || '';
