@@ -9,6 +9,13 @@ A custom Power-Up that adds a **"TASKS"** section to the back of an epic card:
 - "＋ Assign to me": take an item you are not mentioned in.
 - "Only mine" and "Hide completed" filters, open P1 counter.
 
+And **story points** for the board (turned on per board in settings):
+
+- The points live in Trello's own number field **"Story points"**. Each card shows them as a badge in its icon row (⚡ 5); TO DO cards without an estimate get a yellow ⚡ ?.
+- Typing `[3]` (or `[0.5]`, `[0,5]`) in a card title still works: the number is moved into the field and removed from the title.
+- The **Σ** button in the board header opens a window with one person's points in the TO DO list. A click on the name opens a list of people like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name. The window remembers the last person.
+- On the card back, the "Story points" badge opens quick values: 0.5, 1, 2, 3, 5, 8, 13, 21, No estimate.
+
 Installed **once per Workspace**. Nobody on the team needs a browser extension.
 
 ---
@@ -23,6 +30,8 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 | Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. The link counts only while the card exists and the person is still a member of it: if they remove themselves from the card (or the card is deleted), the item shows "＋ TO DO" for them again. |
 | Priority change | Updates the item and the emoji in TO DO cards that are not done yet, wherever the emoji stands in the card title. The new priority shows at once and is saved in the background, so it is applied even if you close the epic right away (the same goes for "Sort by priority"). |
 | "Add all to TO DO" | The button sits in the TASKS header. Trello draws it, so it can't show a counter. A click opens a menu with the checklists that have something to add and how many cards each will create, plus "All tasks" (every checklist at once) when more than one does. One card per open item × assignee that doesn't have a card yet; items without assignees and people who are not board members are skipped. The cards are created in the background while the board is open: the menu shows the progress ("Adding TO DO cards… 2/5"), you can close it at any time, reopening it shows the progress again, and Trello shows a notice when all cards are created. When there is nothing to add, the menu says so. |
+| Story points | The Trello custom field "Story points" (number), created from the settings with one click and hidden from the card front (the Power-Up's badge shows the number instead). A card with several members counts fully for each of them; the TO DO total counts every card once. A card whose title still has `[n]` counts too. |
+| Moving `[n]` from titles | Optional, per board ("Move [n] from card titles into the field automatically"). The value is written to the field first, then the title is cleaned, so nothing is lost if renaming fails. It runs in the browser of anyone who connected Epic Tasks while the board is open, usually within a second; "Move now" in the settings does all cards at once. Only 1–3 digits count (`[2025]` is not points). |
 | Auto-complete | When every assignee of an item has a TO DO card and all of them are in a "Done" list, the item in the epic is ticked. If one of those cards is later moved out of Done (e.g. back to In progress), the item is unticked again; the Power-Up checks this against Trello's activity history, so it also catches moves made while nobody had the epic open. An item you tick by hand while a card is still open (including after a card was moved back) is left alone. Only moving a card to Done completes it: a card archived from TO DO / In progress counts as cancelled (the item stays open and the chip shows "＋ TO DO" again), while a card archived from Done stays done. This happens when someone opens the epic. Can be turned off in settings. |
 
 ---
@@ -50,6 +59,7 @@ Any static hosting works. The simplest option is **GitHub Pages**:
    - `Show settings`
    - `Authorization status`
    - `Show authorization`
+   - `Board buttons`, `Card badges`, `Card detail badges` (story points)
 
 ### 3. Authorization (pick one)
 
@@ -74,6 +84,7 @@ Commit `config.js`. The API key and the Client ID are public by design in Trello
    - **TO DO list**: where new cards go (e.g. `TO DO`).
    - **Done lists**: e.g. `Done`. The TO DO list itself can't be a Done list (it is greyed out there).
    - New card position and auto-complete.
+   - **Story points** (optional): tick "Show story points", click "Create field “Story points”", optionally tick "Move [n] from card titles…" and use "Move now". After saving, reload the board once to see the Σ button (Power-Ups menu → Buttons → Story points switches it on/off in the header).
 
 ### 5. Every team member: one click
 
@@ -90,6 +101,7 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 - Trello mobile apps may not show custom Power-Up sections. Emoji priorities and TO DO cards are visible there as regular Trello data.
 - Assignees are taken from `@username` in the item text. If the person is not a board member, their chip is grey and inactive.
 - After an update, GitHub Pages may serve the old version from cache for up to 10 minutes.
+- Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the Σ window and the Σ button is an icon among the others. Card badges always come after Trello's own icons.
 
 ## Security
 
@@ -102,6 +114,8 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 index.html          connector (registers capabilities)
 section.html        "TASKS" section
 settings.html       board settings
+storypoints.html    Σ window: one person's points, person picker
+spedit.html         quick story point values (card back badge)
 addall.html         "Add to TO DO" menu (opened from the TASKS header)
 auth.html           connect window
 auth-redirect.html  OAuth 2.0 callback
@@ -113,14 +127,18 @@ js/section.js       section UI
 js/client.js        connector + "Add all to TO DO" header button (runs the job in the background)
 js/addall.js        "Add to TO DO" menu + progress
 js/settings.js      settings UI
+js/points.js        story points: [n] parsing, the field, sums, moving [n] into the field
+js/storypoints.js   Σ window
+js/spedit.js        quick values popup
 css/style.css
-img/icon-gray.svg
+img/icon-gray.svg, img/sigma-*.svg, img/bolt.svg
 test/               tests (not deployed)
 ```
 
 ## Tests
 
 ```bash
-node --test test/core.test.js     # logic
-python3 test/run_ui.py            # UI against a mocked Trello (needs playwright + Chrome)
+node --test test/core.test.js test/points.test.js   # logic
+python3 test/run_ui.py            # TASKS section UI against a mocked Trello (needs playwright + Chrome)
+python3 test/run_sp.py            # story points UI against a mocked Trello
 ```
