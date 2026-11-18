@@ -7,7 +7,7 @@
   var current = {};      // settings as stored (kept for keys this form doesn't edit)
   var board = {};
   var field = null;
-  var withN = [];        // open cards that still have [n] in the title
+  var withN = [];        // open cards that still have [n] / (n) in the title
   var moving = false;
 
   function esc(s) {
@@ -80,7 +80,7 @@
     mig.disabled = !field;
     mig.parentNode.style.opacity = field ? '' : '0.5';
     var move = document.getElementById('sp-move');
-    move.textContent = withN.length ? 'Move now: ' + P.cardsWord(withN.length) + ' with [n] in the title' : 'No cards with [n] in the title';
+    move.textContent = withN.length ? 'Move now: ' + P.cardsWord(withN.length) + ' with [n] or (n) in the title' : 'No cards with [n] or (n) in the title';
     move.disabled = moving || !field || !withN.length;
   }
 

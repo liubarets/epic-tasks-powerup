@@ -1,19 +1,23 @@
 // Story points: the number lives in the Trello custom field "Story points".
-// "[3]" typed in a card title still works: it is moved into the field (see migrate()).
+// "[3]", "(3)" or "{3}" typed in a card title still works: it is moved into the field (see migrate()).
 // Pure helpers are unit-tested in test/points.test.js; REST helpers need EpicAuth.
 (function (root) {
   'use strict';
 
   var FIELD_NAME = 'Story points';
-  // 1–3 digits, optional fraction: [3], [0.5], [0,5], [13]. "[2025]" (a year) is not points.
-  var RE = /\[(\d{1,3}(?:[.,]\d{1,2})?)\]/;
+  // Only a number inside the brackets counts: 1–3 digits, optional fraction.
+  //   [3] [0.5] [0,5] [13]      square brackets
+  //   (3) (0,5) {3} {1.5}       round or curly brackets: one digit after the point at most,
+  //                             because "(24.11)" in a title is a date, not 24.11 points
+  // "(v2)", "(Lviv)", "[2025]" (a year) are not points.
+  var RE = /\[(\d{1,3}(?:[.,]\d{1,2})?)\]|\((\d{1,3}(?:[.,]\d)?)\)|\{(\d{1,3}(?:[.,]\d)?)\}/;
 
   function parse(name) {
     var m = RE.exec(String(name || ''));
-    return m ? parseFloat(m[1].replace(',', '.')) : null;
+    return m ? parseFloat((m[1] || m[2] || m[3]).replace(',', '.')) : null;
   }
 
-  // Removes the first "[n]" and tidies the spaces around it.
+  // Removes the first "[n]" / "(n)" / "{n}" and tidies the spaces around it.
   function strip(name) {
     var s = String(name || ''), m = RE.exec(s);
     if (!m) return s;
@@ -47,7 +51,7 @@
     return null;
   }
 
-  // The field wins; a title that still has "[n]" (not moved yet) counts too.
+  // The field wins; a title that still has "[n]" / "(n)" (not moved yet) counts too.
   function cardPoints(card, fieldId) {
     var v = fieldValue(card, fieldId);
     return v != null ? v : parse(card && card.name);

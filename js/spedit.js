@@ -37,7 +37,7 @@
         return '<button type="button" class="sp-chip' + (d.value === v ? ' on' : '') + '" data-v="' + v + '">' + P.fmt(v) + '</button>';
       }).join('') + '</div>' +
       '<button type="button" class="sp-clear" data-v="">No estimate</button>' +
-      '<p class="sp-hint">Or type [n] in the card title.</p>' +
+      '<p class="sp-hint">Or type [n] or (n) in the card title.</p>' +
       (msg ? '<p class="msg error">' + esc(msg) + '</p>' : '');
     return t.sizeTo('#root');
   }
@@ -48,7 +48,7 @@
     }).then(function () {
       return P.setValue(t, d.card.id, d.field.id, v);
     }).then(function () {
-      // With "move [n] from titles" on, a leftover [n] would overwrite the value picked here, so it goes too.
+      // With "move [n] from titles" on, a leftover [n] / (n) would overwrite the value picked here, so it goes too.
       var name = P.strip(d.card.name);
       if (d.cfg.sp && d.cfg.sp.migrate && name && name !== d.card.name) {
         return EpicAuth.request(t, 'PUT', '/cards/' + d.card.id, { name: name });
