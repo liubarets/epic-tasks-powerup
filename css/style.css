@@ -172,20 +172,23 @@ button.sp-clear:hover { background: var(--line); }
 
 /* Story points panel at the bottom of the board */
 body.spbar-body { margin: 0; padding: 0; background: #fff; }
-.spbar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; box-sizing: border-box; white-space: nowrap; overflow: hidden; }
-.spbar-pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 12px; background: var(--bg-soft);
-  color: #44546f; font-size: 12px; font-weight: 600; }
-button.spbar-person { display: inline-flex; align-items: center; gap: 8px; height: 36px; margin: 0; padding: 0 8px 0 6px; border: 0;
-  border-radius: 6px; background: var(--bg-soft); color: var(--text); font-size: 14px; font-weight: 600; }
+/* Compact row: the bar is 32px tall (Trello adds its own header above it) */
+.spbar { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 12px; box-sizing: border-box; white-space: nowrap; overflow: hidden; }
+.spbar-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: var(--bg-soft);
+  color: #44546f; font-size: 11px; font-weight: 600; }
+button.spbar-person { display: inline-flex; align-items: center; gap: 6px; height: 24px; margin: 0; padding: 0 6px 0 3px; border: 0;
+  border-radius: 6px; background: var(--bg-soft); color: var(--text); font-size: 13px; font-weight: 600; line-height: 1; }
 button.spbar-person:hover { background: var(--line); }
 .spbar-person svg { color: #44546f; flex: none; }
-.spbar-sep { width: 1px; height: 24px; background: var(--line); flex: none; }
-.spbar-num { font-size: 26px; font-weight: 700; line-height: 1; color: var(--blue); }
-.spbar-unit { margin-left: -6px; font-size: 14px; font-weight: 600; }
-.spbar-sub { font-size: 13px; color: var(--muted); }
-.spbar-msg { font-size: 13px; color: var(--muted); }
-button.spbar-est { display: inline-flex; align-items: center; gap: 5px; height: 28px; margin: 0; padding: 0 10px 0 8px; border: 0;
-  border-radius: 6px; font-size: 13px; font-weight: 600; }
+.spbar .sp-av-24 { width: 18px; height: 18px; font-size: 8px; }
+.spbar .sp-av-pick { font-size: 11px; }
+.spbar-sep { width: 1px; height: 16px; background: var(--line); flex: none; }
+.spbar-num { font-size: 18px; font-weight: 700; line-height: 1; color: var(--blue); }
+.spbar-unit { margin-left: -6px; font-size: 13px; font-weight: 600; }
+.spbar-sub { font-size: 12px; color: var(--muted); }
+.spbar-msg { font-size: 12px; color: var(--muted); }
+button.spbar-est { display: inline-flex; align-items: center; gap: 4px; height: 22px; margin: 0; padding: 0 8px 0 6px; border: 0;
+  border-radius: 6px; font-size: 12px; font-weight: 600; line-height: 1; }
 button.spbar-est.warn { background: #fff7d6; color: #7f5f01; }
 button.spbar-est.warn:hover { background: #f8e6a0; }
 button.spbar-est.ok { background: #dcfff1; color: #216e4e; }
