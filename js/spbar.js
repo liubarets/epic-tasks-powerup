@@ -10,7 +10,7 @@
   var root = document.getElementById('root');
   var PAL = ['#1f845a', '#c9372c', '#6e5dc6', '#0c66e4', '#a54800', '#943d73', '#206a83', '#5e4db2', '#7f5f01', '#44546f'];
   var BOLT = '<svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2L4.5 14h6.5l-1 8 9-12h-6.5z" fill="currentColor"/></svg>';
-  var CHEV = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var loading = false, again = false, last = '';
   var channel = null;
   try { channel = new BroadcastChannel('epic-tasks-sp'); } catch (e) { channel = null; }

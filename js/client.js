@@ -137,7 +137,7 @@
   var autoTried = false;
   function openBar(t) {
     return t.boardBar({
-      url: './spbar.html', height: 48, title: 'Story points',
+      url: './spbar.html', height: 32, title: 'Story points',
       callback: function () { return Promise.resolve(t.set('member', 'private', 'spBar', false)).catch(function () {}); },
     });
   }
