@@ -15,7 +15,7 @@ And **story points** for the board (turned on per board in settings):
 
 - The points live in Trello's own number field **"Story points"**. Each card shows them as a badge in its icon row (⚡ 5); TO DO cards without an estimate get a yellow ⚡ ?.
 - Typing `[3]` or `(3)` in a card title still works (also `[0,5]`, `(0,5)`, `{3}`): the number is moved into the field and removed from the title. Only a number inside the brackets counts, so `(v2)`, `(Lviv)` or a date like `(24.11)` stay in the title.
-- The **Σ** button in the board header (a blue square with a white Σ) opens a **panel at the bottom of the board**: the TO DO list, the picked person and their points ("Dmytro Voloshyn · 14 points · 5 cards"). The panel updates by itself while you work — when someone changes points, members or moves cards — and stays open (it reopens on its own the next time you open the board) until you close it with ×. A click on the person opens a list like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them (then the panel shows the total for everyone). The picked person is personal: everyone picks their own.
+- The **SP** button in the board header (the Teamload icon: a white ⚡ on blue) opens a **panel at the bottom of the board**: the TO DO list, the picked person and their points ("Dmytro Voloshyn · 14 points · 5 cards"). The panel updates by itself while you work — when someone changes points, members or moves cards — and stays open (it reopens on its own the next time you open the board) until you close it with ×. A click on the person opens a list like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them (then the panel shows the total for everyone). The picked person is personal: everyone picks their own.
 - **Estimating without opening cards:** the panel shows "3 unestimated" (or "All estimated"). A click opens a big window with the TO DO cards of the picked person, one row each with 0.5, 1, 2, 3, 5, 8, 13, 21. One click saves the value; cards estimated there stay listed with a ✓ until the window is closed. Tabs: "No estimate" and "All" (to change a value). The person can be changed in the window too. Setting values needs Teamload to be connected.
 - On the card back, the "Story points" badge opens quick values: 0.5, 1, 2, 3, 5, 8, 13, 21, No estimate.
 
@@ -87,7 +87,7 @@ Commit `config.js`. The API key and the Client ID are public by design in Trello
    - **TO DO list**: where new cards go (e.g. `TO DO`).
    - **Done lists**: e.g. `Done`. The TO DO list itself can't be a Done list (it is greyed out there).
    - New card position and auto-complete.
-   - **Story points** (optional): tick "Show story points", click "Create field “Story points”", optionally tick "Move [n] from card titles…" and use "Move now". After saving, reload the board once to see the Σ button (Power-Ups menu → Buttons → Story points switches it on/off in the header).
+   - **Story points** (optional): tick "Show story points", click "Create field “Story points”", optionally tick "Move [n] from card titles…" and use "Move now". After saving, reload the board once to see the SP button (Power-Ups menu → Buttons → SP switches it on/off in the header).
 
 ### 5. Every team member: one click
 
@@ -104,7 +104,7 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 - Trello mobile apps may not show custom Power-Up sections. Emoji priorities and TO DO cards are visible there as regular Trello data.
 - Assignees are taken from `@username` in the item text. If the person is not a board member, their chip is grey and inactive.
 - After an update, GitHub Pages may serve the old version from cache for up to 10 minutes.
-- Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the panel at the bottom of the board and the Σ button is an icon among the others. Card badges always come after Trello's own icons.
+- Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the panel at the bottom of the board and the SP button sits among the other header buttons. Card badges always come after Trello's own icons.
 
 ## Security
 
@@ -138,7 +138,7 @@ js/storypoints.js   person list
 js/estimate.js      "Estimate story points" window
 js/spedit.js        quick values popup
 css/style.css
-img/icon-gray.svg, img/sigma-badge.svg (header button), img/bolt.svg
+img/icon-gray.svg, img/teamload-icon.svg/.png (app icon and SP button), img/bolt.svg
 test/               tests (not deployed)
 ```
 
