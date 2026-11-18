@@ -172,6 +172,7 @@ button.sp-clear:hover { background: var(--line); }
 
 /* Story points panel at the bottom of the board */
 body.spbar-body { margin: 0; padding: 0; background: #fff; }
+body.spbar-body #root { padding: 0; }  /* no extra offset: the row is centred exactly in the bar */
 /* Compact row: the bar is 32px tall (Trello adds its own header above it) */
 .spbar { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 12px; box-sizing: border-box; white-space: nowrap; overflow: hidden; }
 .spbar-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: var(--bg-soft);
