@@ -98,7 +98,7 @@
 
   // ---- Story points ----
   var P = window.EpicPoints;
-  var SIGMA = new URL('./img/sigma-badge.svg', window.location.href).href;  // blue square with a white Σ
+  var SP_ICON = new URL('./img/teamload-icon.svg', window.location.href).href;  // the Teamload icon: a white ⚡ on blue
   var BOLT = new URL('./img/bolt.svg', window.location.href).href;
   var spCache = null, spAt = 0;
 
@@ -132,7 +132,7 @@
     });
   }
 
-  // The Σ button opens the story points panel at the bottom of the board. The panel stays open while you
+  // The SP button opens the story points panel at the bottom of the board. The panel stays open while you
   // work and reopens by itself next time you open the board, until you close it.
   var autoTried = false;
   function openBar(t) {
@@ -153,13 +153,13 @@
   }
 
   TrelloPowerUp.initialize({
-    // Header button: Σ in a blue square (the same on light and dark headers). The numbers live in the panel,
-    // which updates by itself; Trello would refresh a number on this button only on page reload.
+    // Header button "SP" with the Teamload icon (the same on light and dark headers). Short text keeps the header compact.
+    // The numbers live in the panel, which updates by itself; Trello would refresh this button only on page reload.
     'board-buttons': function (t) {
       return spCfg(t).then(function (c) {
         if (!c.on) return [];
         autoOpen(t);
-        return [{ icon: { dark: SIGMA, light: SIGMA }, text: 'Story points', callback: spPopup }];
+        return [{ icon: { dark: SP_ICON, light: SP_ICON }, text: 'SP', callback: spPopup }];
       });
     },
 
