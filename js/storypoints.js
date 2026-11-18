@@ -91,9 +91,9 @@
   function render() {
     var cfg = data.cfg;
     if (!cfg.sp || !cfg.sp.on) {
-      root.innerHTML = '<p class="msg">Story points are turned off on this board. Turn them on in Epic Tasks settings.</p>';
+      root.innerHTML = '<p class="msg">Story points are turned off on this board. Turn them on in Teamload settings.</p>';
     } else if (!cfg.todoListId) {
-      root.innerHTML = '<p class="msg">Choose the TO DO list in Epic Tasks settings first.</p>';
+      root.innerHTML = '<p class="msg">Choose the TO DO list in Teamload settings first.</p>';
     } else if (state.view === 'pick') {
       renderPicker();
     } else {

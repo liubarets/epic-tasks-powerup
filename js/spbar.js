@@ -64,7 +64,7 @@
   function render(cfg, board, cards, lists, pid) {
     var html;
     if (!cfg.sp || !cfg.sp.on || !cfg.todoListId) {
-      html = '<div class="spbar"><span class="spbar-msg">Turn on story points and choose the TO DO list in Epic Tasks settings.</span></div>';
+      html = '<div class="spbar"><span class="spbar-msg">Turn on story points and choose the TO DO list in Teamload settings.</span></div>';
     } else {
       var field = P.findField(board.customFields, cfg);
       var sum = P.summarize(cards, field && field.id, cfg.todoListId);

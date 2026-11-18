@@ -1,9 +1,9 @@
 // =====================================================================
-//  Epic Tasks — configuration. This is the ONLY file you need to edit.
+//  Teamload — configuration. This is the ONLY file you need to edit.
 // =====================================================================
 window.EPIC_TASKS_CONFIG = {
   // Name Trello shows to users when they connect.
-  APP_NAME: 'Epic Tasks',
+  APP_NAME: 'Teamload',
 
   // OPTION A (simpler) — "Trello auth".
   // Power-Up admin → your Power-Up → API key → Generate → paste the key here.

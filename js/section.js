@@ -239,7 +239,7 @@
 
   function renderAuth() {
     root.innerHTML = '<div class="auth"><p>To set priorities and add items to TO DO, ' +
-      'connect Epic Tasks to your Trello account. You only need to do this <b>once</b>.</p>' +
+      'connect Teamload to your Trello account. You only need to do this <b>once</b>.</p>' +
       '<button class="mod-primary" data-action="auth">Connect</button></div>';
     resize();
   }
@@ -290,7 +290,7 @@
     } else if (a === 'refresh') {
       refresh();
     } else if (a === 'settings') {
-      t.popup({ title: 'Epic Tasks — settings', url: './settings.html', height: 420, mouseEvent: e });
+      t.popup({ title: 'Teamload — settings', url: './settings.html', height: 420, mouseEvent: e });
     } else if (a === 'open') {
       t.showCard(el.getAttribute('data-card'));
     } else if (a === 'todo') {

@@ -29,7 +29,7 @@
 
   function render(msg) {
     if (!d.field) {
-      root.innerHTML = '<p class="msg">The “' + esc(P.FIELD_NAME) + '” field isn’t on this board yet. Create it in Epic Tasks settings.</p>';
+      root.innerHTML = '<p class="msg">The “' + esc(P.FIELD_NAME) + '” field isn’t on this board yet. Create it in Teamload settings.</p>';
       return t.sizeTo('#root');
     }
     root.innerHTML =

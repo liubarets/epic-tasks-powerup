@@ -89,7 +89,7 @@
   function load() {
     return EpicAuth.isAuthorized(t).then(function (ok) {
       if (!ok) {
-        return show('<p class="msg">Connect Epic Tasks to your Trello account first.</p>' +
+        return show('<p class="msg">Connect Teamload to your Trello account first.</p>' +
           '<button class="mod-primary" data-action="auth">Connect</button>');
       }
       return EpicTodo.load(t).then(function (d) {

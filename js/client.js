@@ -64,7 +64,7 @@
     }, function (e) {
       var msg = (e && e.message) || String(e);
       post({ type: 'ops-done', id: m.id, error: msg });
-      return Promise.resolve(t.alert({ message: 'Epic Tasks: ' + msg, display: 'error', duration: 10 })).catch(function () {});
+      return Promise.resolve(t.alert({ message: 'Teamload: ' + msg, display: 'error', duration: 10 })).catch(function () {});
     });
   }
 
@@ -115,7 +115,7 @@
   }
 
   // "[3] Banner" typed in a title → field = 3, title = "Banner". Runs in the session of anyone who
-  // connected Epic Tasks; one card at a time. Several open sessions doing the same card is harmless.
+  // connected Teamload; one card at a time. Several open sessions doing the same card is harmless.
   var moving = {};
   var moveQueue = Promise.resolve();
   function wait(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
@@ -207,7 +207,7 @@
     },
 
     'show-settings': function (t) {
-      return t.popup({ title: 'Epic Tasks — settings', url: './settings.html', height: 560 });
+      return t.popup({ title: 'Teamload — settings', url: './settings.html', height: 560 });
     },
 
     'authorization-status': function (t) {
@@ -215,7 +215,7 @@
     },
 
     'show-authorization': function (t) {
-      return t.popup({ title: 'Connect Epic Tasks', url: './auth.html', height: 150 });
+      return t.popup({ title: 'Connect Teamload', url: './auth.html', height: 150 });
     },
   }, EpicAuth.iframeOptions());
 })();

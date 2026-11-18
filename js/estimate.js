@@ -182,15 +182,15 @@
   function render() {
     var cfg = data.cfg;
     if (!cfg.sp || !cfg.sp.on) {
-      root.innerHTML = '<p class="msg est-msg">Story points are turned off on this board. Turn them on in Epic Tasks settings.</p>';
+      root.innerHTML = '<p class="msg est-msg">Story points are turned off on this board. Turn them on in Teamload settings.</p>';
       return;
     }
     if (!cfg.todoListId) {
-      root.innerHTML = '<p class="msg est-msg">Choose the TO DO list in Epic Tasks settings first.</p>';
+      root.innerHTML = '<p class="msg est-msg">Choose the TO DO list in Teamload settings first.</p>';
       return;
     }
     if (!data.field) {
-      root.innerHTML = '<p class="msg est-msg">The “' + esc(P.FIELD_NAME) + '” field isn’t on this board yet. Create it in Epic Tasks settings.</p>';
+      root.innerHTML = '<p class="msg est-msg">The “' + esc(P.FIELD_NAME) + '” field isn’t on this board yet. Create it in Teamload settings.</p>';
       return;
     }
     // Keep the scroll position and the focused button across redraws.
@@ -217,7 +217,7 @@
 
     root.innerHTML =
       '<div class="est">' +
-        (ui.authed ? '' : '<div class="est-banner"><span>Connect Epic Tasks to set story points here.</span>' +
+        (ui.authed ? '' : '<div class="est-banner"><span>Connect Teamload to set story points here.</span>' +
           '<button type="button" class="mod-primary" data-action="connect">Connect</button></div>') +
         '<div class="est-bar">' +
           '<div class="est-who">' +
