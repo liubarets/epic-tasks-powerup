@@ -34,6 +34,20 @@ button.link:disabled { color: var(--muted); cursor: default; text-decoration: no
 .cl-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 4px; }
 .cl-actions { display: inline-flex; gap: 12px; margin-left: auto; }
 .link-busy { color: var(--muted); font-size: 12px; }
+.cl-actions { align-items: center; }
+/* "＋ My cards ▾" and its menu (inline, so the section grows instead of clipping a popup) */
+button.my-btn { background: var(--blue); color: #fff; border: 0; border-radius: 4px; font-size: 12px; line-height: 20px;
+  padding: 2px 8px; margin: 0; font-weight: 600; }
+button.my-btn:hover { background: #0055cc; }
+.my-busy { color: var(--muted); font-size: 12px; }
+.my-menu { border: 1px solid var(--line); border-radius: 8px; padding: 6px; margin: 4px 0 8px; background: #fff;
+  box-shadow: 0 4px 8px #091e4226; }
+.my-menu-head { font-size: 12px; color: var(--muted); padding: 2px 6px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.my-menu button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px;
+  padding: 6px 8px; margin: 0; color: var(--text); }
+.my-menu button:hover { background: var(--blue-soft); }
+.my-menu b { font-weight: 600; }
+.my-menu small { display: block; color: var(--muted); font-size: 12px; line-height: 16px; font-weight: 400; }
 .cl-name { font-weight: 600; }
 .cl-count { color: var(--muted); font-size: 12px; }
 .bar { flex: 1; height: 6px; background: var(--bg-soft); border-radius: 3px; overflow: hidden; min-width: 40px; }
@@ -254,3 +268,21 @@ button.est-chip:disabled { cursor: default; opacity: .55; }
   .est-head .c3 { display: none; }
   .est-chips { width: 100%; padding: 0 0 8px 28px; box-sizing: border-box; }
 }
+
+/* "STORY POINTS" section on a card with a checklist: a small scale under every open item */
+.cp-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 2px 0 6px; }
+.cp-sum { font-weight: 700; color: var(--blue); background: var(--blue-soft); border-radius: 4px; padding: 0 8px; }
+.cp-note { color: var(--muted); font-size: 12px; }
+.cp-cl { font-weight: 600; font-size: 12px; color: #44546f; margin: 8px 0 2px; }
+ul.cp-list { list-style: none; margin: 0; padding: 0; }
+.cp-item { display: flex; flex-direction: column; gap: 3px; padding: 6px 0; border-top: 1px solid var(--bg-soft); }
+.cp-item.done .cp-name { text-decoration: line-through; color: var(--muted); }
+.cp-done { color: var(--green); font-size: 12px; }
+.cp-scale { display: flex; gap: 3px; flex-wrap: wrap; }
+button.cp-v { min-width: 30px; height: 22px; margin: 0; padding: 0 4px; border: 0; border-radius: 4px; background: var(--bg-soft);
+  color: var(--text); font-size: 12px; font-weight: 600; line-height: 22px; }
+button.cp-v:hover { background: var(--line); }
+button.cp-v.on { background: var(--blue); color: #fff; }
+button.cp-v:disabled { cursor: default; opacity: .55; }
+.est-title.est-item small { display: block; color: var(--muted); font-size: 11px; line-height: 14px; font-weight: 400;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
