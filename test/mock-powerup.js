@@ -60,6 +60,20 @@
     c.idList = idList;
   };
   window.__tick = function (cl, i, state) { var it = S.checklists[cl].checkItems[i]; it.state = state; logTick(it); };
+  // a person ticks an item in their own card (a checklist card): Trello logs it on that card
+  window.__tickIn = function (cardId, itemId, state) {
+    var c = Object.values(S.cards).filter(function (x) { return x.id === cardId; })[0];
+    var it = allKidItems(c).filter(function (x) { return x.id === itemId; })[0];
+    it.state = state;
+    (c.checkActions = c.checkActions || []).unshift({ date: now(), data: { checkItem: { id: it.id, state: state } } });
+  };
+  function allKidItems(c) { var o = []; (c && c.checklists || []).forEach(function (cl) { cl.checkItems.forEach(function (i) { o.push(i); }); }); return o; }
+  function cardById(cid) { return Object.values(S.cards).filter(function (c) { return c.id === cid; })[0] || null; }
+  function cardBadges(c) {
+    var items = allKidItems(c);
+    return { checkItems: items.length, checkItemsChecked: items.filter(function (i) { return i.state === 'complete'; }).length, attachments: (c.badges || {}).attachments || 0 };
+  }
+  window.__cardById = cardById;
 
   function findItem(iid) {
     for (var i = 0; i < S.checklists.length; i++) {
@@ -81,7 +95,31 @@
     S.requests.push({ method: method, path: path, q: q, body: body });
     var m;
     if (method === 'GET' && (m = path.match(/^\/cards\/([^/]+)\/checklists$/))) {
+      if (m[1] !== 'card00000000000000000epic') { var oc = cardById(m[1]) || (S.card.id === m[1] ? S.card : null); return json(clone((oc && oc.checklists) || [])); }
       return json(clone(S.checklists));
+    }
+    if (method === 'POST' && (m = path.match(/^\/cards\/([^/]+)\/checklists$/))) {
+      var kc = cardById(m[1]);
+      var ncl = { id: id('kl'), name: q.name, pos: ++seq, idCard: kc.id, checkItems: [] };
+      (kc.checklists = kc.checklists || []).push(ncl);
+      return json(clone(ncl));
+    }
+    if (method === 'POST' && (m = path.match(/^\/checklists\/([^/]+)\/checkItems$/))) {
+      var hit = null;
+      Object.values(S.cards).forEach(function (c) { (c.checklists || []).forEach(function (cl) { if (cl.id === m[1]) hit = cl; }); });
+      if (!hit) return json({ message: 'no checklist' }, 404);
+      var nci = { id: id('ki'), name: q.name, state: 'incomplete', pos: ++seq * 1024, due: q.due || null, idMember: null };
+      hit.checkItems.push(nci);
+      return json(clone(nci));
+    }
+    if (method === 'PUT' && (m = path.match(/^\/cards\/([^/]+)\/checkItem\/([^/]+)$/)) && m[1] !== 'card00000000000000000epic') {
+      var owner = cardById(m[1]);
+      var ki = allKidItems(owner).filter(function (x) { return x.id === m[2]; })[0];
+      if (!ki) return json({ message: 'not found' }, 404);
+      if (q.name !== undefined) ki.name = q.name;
+      if (q.due !== undefined) ki.due = q.due;
+      if (q.state) { ki.state = q.state; (owner.checkActions = owner.checkActions || []).unshift({ date: now(), data: { checkItem: { id: ki.id, state: q.state } } }); }
+      return json(clone(ki));
     }
     if (method === 'PUT' && (m = path.match(/^\/cards\/([^/]+)\/checkItem\/([^/]+)$/))) {
       var f = findItem(m[2]);
@@ -98,6 +136,7 @@
           ? clone(S.epicActions.filter(function (a) { return !q.since || a.date > q.since; })) : []);
       }
       var ac = Object.values(S.cards).filter(function (c) { return c.id === m[1]; })[0];
+      if (ac && q.filter === 'updateCheckItemStateOnCard') return json(clone(ac.checkActions || []));
       return json(ac && q.filter === 'updateCard:idList' ? clone(ac.actions || []) : []);
     }
     if (method === 'GET' && path === '/batch') {
@@ -105,13 +144,19 @@
       return json(q.urls.split(',').map(function (route) {
         var u = new URL('https://x' + route);
         var rq = Object.fromEntries(u.searchParams.entries());
-        var mm = u.pathname.match(/^\/cards\/([^/]+)(\/actions)?$/);
+        var mm = u.pathname.match(/^\/cards\/([^/]+)(\/actions|\/checklists)?$/);
         if (!mm) return { 400: 'bad route' };
         var c = S.cards[mm[1]] || Object.values(S.cards).filter(function (x) { return x.id === mm[1]; })[0];
         if (!c) return { 404: 'not found' };
-        if (mm[2]) return { 200: rq.filter === 'updateCard:idList' ? clone(c.actions || []) : [] };
+        if (mm[2] === '/checklists') return { 200: clone(c.checklists || []) };
+        if (mm[2]) return { 200: rq.filter === 'updateCard:idList' ? clone(c.actions || []) : rq.filter === 'updateCheckItemStateOnCard' ? clone(c.checkActions || []) : [] };
         var full = clone(c);
-        if (rq.fields) { var only = { id: c.id }; rq.fields.split(',').forEach(function (f) { only[f] = full[f]; }); return { 200: only }; }
+        if (rq.fields) {
+          var only = { id: c.id }; rq.fields.split(',').forEach(function (f) { only[f] = full[f]; });
+          if (rq.checklists === 'all') only.checklists = full.checklists || [];
+          if (rq.customFieldItems === 'true') only.customFieldItems = full.customFieldItems || [];
+          return { 200: only };
+        }
         return { 200: full };
       }));
     }
@@ -169,21 +214,25 @@
 
   if (window.__mockPatch) window.__mockPatch(S);
   var renderFn = null;
+  window.__rerender = function () { if (renderFn) renderFn(); };
+  function scopeOf(scope) { return scope === 'card' && S.card.id !== 'card00000000000000000epic' ? S.card.id : scope; }
   function pick(obj) { return Promise.resolve(clone(obj)); }
   var t = {
-    card: function () { return pick(S.card); },
+    card: function () { var c = clone(S.card); if (S.card.checklists) c.badges = cardBadges(S.card); return Promise.resolve(c); },
     board: function () { return pick({ id: S.board.id, members: S.members || members, labels: S.board.labels, customFields: S.board.customFields }); },
     cards: function () {
       var ms = S.members || members;
       return pick(Object.values(S.cards).map(function (c) {
-        return { id: c.id, name: c.name, idList: c.idList, closed: !!c.closed, pos: c.pos, customFieldItems: c.customFieldItems || [],
+        return { id: c.id, name: c.name, idList: c.idList, closed: !!c.closed, pos: c.pos, customFieldItems: c.customFieldItems || [], badges: cardBadges(c),
           members: (c.idMembers || []).map(function (mid) { return ms.filter(function (x) { return x.id === mid; })[0] || { id: mid }; }) };
       }));
     },
     member: function () { return pick(S.me || ME); },
     lists: function () { return pick(lists); },
-    get: function (scope, vis, k, def) { var v = (S.plugin[scope] || {})[k]; return Promise.resolve(v === undefined ? def : clone(v)); },
+    // "card" is the card in context: the epic's data lives under S.plugin.card (as before), any other card's under its id
+    get: function (scope, vis, k, def) { scope = scopeOf(scope); var v = (S.plugin[scope] || {})[k]; return Promise.resolve(v === undefined ? def : clone(v)); },
     set: function (scope, vis, k, v) {
+      scope = scopeOf(scope);
       S.plugin[scope] = S.plugin[scope] || {}; S.plugin[scope][k] = clone(v);
       if (renderFn) setTimeout(renderFn, 0); // Trello reloads the section on pluginData change
       return Promise.resolve();
