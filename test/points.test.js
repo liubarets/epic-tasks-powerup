@@ -95,3 +95,26 @@ test('migrate does nothing without [n] or without the field', async () => {
   assert.equal(await P.migrate({}, { id: 'c1', name: 'Plain' }, 'f_sp'), false);
   assert.equal(await P.migrate({}, { id: 'c1', name: '[3] X' }, null), false);
 });
+
+test('item points: stored value first, then [n] / (n) in the text', () => {
+  const pts = { '00000001': 5 };
+  assert.equal(P.itemKey('item0000000000000000000000000001'.slice(-24)), '00000001');
+  assert.equal(P.itemPoints({ id: 'item00000000000000000001', name: 'Banner (3)' }, pts), 5);
+  assert.equal(P.itemPoints({ id: 'item00000000000000000002', name: 'Banner (3)' }, pts), 3);
+  assert.equal(P.itemPoints({ id: 'item00000000000000000002', name: 'Banner' }, pts), null);
+  assert.equal(P.itemPoints({ id: 'item00000000000000000001', name: 'Banner' }, { '00000001': 0.5 }), 0.5);
+});
+
+test('card with a checklist: its points are the sum of open items', () => {
+  const item = (id, name, state) => ({ id: 'ci' + String(id).padStart(22, '0'), name, state: state || 'incomplete' });
+  const card = (...items) => ({ checklists: [{ checkItems: items.slice(0, 2) }, { checkItems: items.slice(2) }] });
+  const pts = { '00000011': 3, '00000012': 5 };
+  assert.equal(P.checklistField(card(item(11, 'A'), item(12, 'B'), item(13, 'C')), {}), undefined, 'not estimated by items: the card keeps its own value');
+  assert.equal(P.checklistField(card(item(11, 'A'), item(12, 'B'), item(13, 'C')), pts), 8, 'unestimated items add nothing; all checklists count');
+  assert.equal(P.checklistField(card(item(11, 'A', 'complete'), item(12, 'B'), item(13, 'C')), pts), 5, 'ticked items do not count');
+  assert.equal(P.checklistField(card(item(11, 'A', 'complete'), item(12, 'B', 'complete'), item(13, 'C')), pts), null, 'only unestimated items left');
+  assert.equal(P.checklistField(card(item(11, 'A', 'complete'), item(12, 'B', 'complete'), item(13, 'C', 'complete')), pts), 0, 'all done');
+  assert.equal(P.checklistField(card(item(13, 'C (2)')), {}), 2, '(n) in an item text counts');
+  assert.equal(P.checklistField(card(item(11, 'A'), item(12, 'B')), { '00000011': 0.5, '00000012': 0.25 }), 0.75);
+  assert.deepEqual(P.prunePoints({ '00000011': 3, '00000099': 8 }, card(item(11, 'A'))), { '00000011': 3 }, 'items gone from the card are dropped');
+});

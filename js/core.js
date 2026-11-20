@@ -150,16 +150,19 @@
     return !!card && !isCardCancelled(card, doneListIds) && (card.idMembers || []).indexOf(memberId) !== -1;
   }
 
-  // When the item was last ticked, from the epic's "updateCheckItemStateOnCard" actions
-  // (newest first, as Trello returns them). ISO date string or null.
-  function lastTicked(epicActions, itemId) {
-    var list = epicActions || [];
+  // When the item last got the given state ('complete' / 'incomplete'), from a card's
+  // "updateCheckItemStateOnCard" actions (newest first, as Trello returns them). ISO date string or null.
+  function lastState(actions, itemId, state) {
+    var list = actions || [];
     for (var i = 0; i < list.length; i++) {
       var ci = list[i].data && list[i].data.checkItem;
-      if (ci && ci.id === itemId && ci.state === 'complete') return list[i].date;
+      if (ci && ci.id === itemId && ci.state === state) return list[i].date;
     }
     return null;
   }
+
+  // When the item was last ticked in the epic. ISO date string or null.
+  function lastTicked(epicActions, itemId) { return lastState(epicActions, itemId, 'complete'); }
 
   // When the card last left a Done list for a list outside Done, from its "updateCard:idList"
   // actions (newest first). ISO date string or null.
@@ -195,6 +198,90 @@
 
   function byPos(a, b) { return (a.pos || 0) - (b.pos || 0); }
 
+  // ---- "One card per checklist × person" (checklist cards) ----
+  // Power-Up data "groups" on the epic: { groupKey(checklist, person): { s: shortLink of their checklist card,
+  //   i: { itemKey(epic item): last 8 characters of the id of the item in that card } } }.
+  // Separate TO DO cards stay in "links"; an item × person is never in both (see todo.js).
+  var KID_SUFFIX = 8;
+
+  function itemKey(itemId) { return String(itemId).slice(-10); }
+
+  function kidSuffix(kidItemId) { return String(kidItemId).slice(-KID_SUFFIX); }
+
+  // The item in a checklist card (matched by the end of its id).
+  function findKidItem(checklists, suffix) {
+    if (!suffix) return null;
+    for (var i = 0; i < (checklists || []).length; i++) {
+      var items = checklists[i].checkItems || [];
+      for (var j = 0; j < items.length; j++) {
+        if (String(items[j].id).slice(-KID_SUFFIX) === suffix) return items[j];
+      }
+    }
+    return null;
+  }
+
+  // Key of a checklist × person → their checklist card (Power-Up data "groups" on the epic).
+  function groupKey(checklistId, memberId) { return String(checklistId).slice(-10) + ':' + String(memberId).slice(-8); }
+
+  // Where an item × person sits in a checklist card: { shortLink, suffix } or null.
+  function kidEntry(groups, checklistId, memberId, itemId) {
+    var g = (groups || {})[groupKey(checklistId, memberId)];
+    var suffix = g && g.i && g.i[itemKey(itemId)];
+    return suffix ? { shortLink: g.s, suffix: suffix } : null;
+  }
+
+  // Drops groups of checklists that are gone and entries of items that are gone.
+  function pruneGroups(groups, existingChecklistIds, existingItemIds) {
+    var cls = {}, items = {};
+    existingChecklistIds.forEach(function (id) { cls[String(id).slice(-10)] = 1; });
+    existingItemIds.forEach(function (id) { items[itemKey(id)] = 1; });
+    var out = {};
+    Object.keys(groups || {}).forEach(function (k) {
+      var g = groups[k];
+      if (!g || !cls[k.split(':')[0]]) return;
+      var i = {};
+      Object.keys(g.i || {}).forEach(function (ik) { if (items[ik]) i[ik] = g.i[ik]; });
+      out[k] = { s: g.s, i: i };
+    });
+    return out;
+  }
+
+  // Checklist card name: "Epic name / Checklist name".
+  function kidCardName(epicName, checklistName) {
+    return String(epicName || '').trim() + ' / ' + String(checklistName || '').trim();
+  }
+
+  // An item as it appears in a checklist card: the priority emoji first, no @mentions.
+  // stripPoints (optional) removes "[n]" / "(n)": in the card, points live in Teamload data.
+  function kidItemName(itemName, stripPoints) {
+    var level = parsePriority(itemName);
+    var title = cleanTitle(itemName);
+    if (stripPoints) title = stripPoints(title);
+    return level ? withPriority(title, level) : title;
+  }
+
+  // Ticks between the epic and the checklist cards: the latest change wins.
+  //   epicDone  — the item is ticked in the epic;
+  //   allDone   — every assignee is done (their item in a checklist card is ticked, or their TO DO card is in Done);
+  //   h         — when things last happened (ISO strings or null):
+  //               epicTick / epicUntick: the item in the epic; kidTick / kidUntick: its items in checklist cards.
+  // Returns 'tick-epic' | 'untick-epic' | 'tick-kids' | 'untick-kids' | null.
+  // Our own copies (ticking the cards after a tick in the epic, or the other way round) are changes in the
+  // same direction, so they never undo each other.
+  function tickDecision(epicDone, allDone, h) {
+    h = h || {};
+    if (epicDone === allDone) return null;
+    if (!epicDone) {
+      // Everyone ticked it in their cards; the epic was unticked by hand after that → the cards follow the epic.
+      if (h.epicUntick && (!h.kidTick || h.epicUntick > h.kidTick)) return 'untick-kids';
+      return 'tick-epic';
+    }
+    // Someone unticked their item after the epic was ticked → the epic reopens.
+    if (h.kidUntick && (!h.epicTick || h.kidUntick > h.epicTick)) return 'untick-epic';
+    // The epic was ticked by hand → the open items in the cards are ticked too.
+    return 'tick-kids';
+  }
+
   var Core = {
     PRIORITIES: PRIORITIES,
     byLevel: byLevel,
@@ -212,12 +299,22 @@
     isCardDone: isCardDone,
     isCardCancelled: isCardCancelled,
     isLinkAlive: isLinkAlive,
+    lastState: lastState,
     lastTicked: lastTicked,
     lastLeftDone: lastLeftDone,
     shouldReopen: shouldReopen,
     todoCardName: todoCardName,
     todoCardDesc: todoCardDesc,
     byPos: byPos,
+    itemKey: itemKey,
+    kidSuffix: kidSuffix,
+    findKidItem: findKidItem,
+    groupKey: groupKey,
+    kidEntry: kidEntry,
+    pruneGroups: pruneGroups,
+    kidCardName: kidCardName,
+    kidItemName: kidItemName,
+    tickDecision: tickDecision,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Core;

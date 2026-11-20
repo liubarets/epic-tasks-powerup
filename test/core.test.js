@@ -126,3 +126,68 @@ test('reopen: an item is unticked only if a card left Done after the item was ti
   assert.equal(C.shouldReopen('2026-11-17T10:00:00.000Z', null), false, 'card never was in Done');
   assert.equal(C.shouldReopen(null, '2026-11-17T09:30:00.000Z'), true, 'tick is older than the history we got');
 });
+
+test('checklist cards: groups, item lookup, keys, names', () => {
+  const cl = 'cl0000000000000000000001', m = 'm1aaaaaaaaaaaaaaaaaaaaaa', item = '5f1234567890abcdef123456';
+  assert.equal(C.groupKey(cl, m), '0000000001:aaaaaaaa');
+  assert.equal(C.itemKey(item), '90abcdef123456'.slice(-10));
+  assert.equal(C.kidSuffix('aaaa00000000000011111111'), '11111111');
+  const groups = { [C.groupKey(cl, m)]: { s: 'KID00001', i: { [C.itemKey(item)]: '11111111' } } };
+  assert.deepEqual(C.kidEntry(groups, cl, m, item), { shortLink: 'KID00001', suffix: '11111111' });
+  assert.equal(C.kidEntry(groups, cl, 'm2bbbbbbbbbbbbbbbbbbbbbb', item), null, 'another person');
+  assert.equal(C.kidEntry(groups, cl, m, 'other0000000000000000000'), null, 'another item');
+  const cls = [{ checkItems: [{ id: 'aaaa00000000000011111111' }] }, { checkItems: [{ id: 'bbbb00000000000022222222' }] }];
+  assert.equal(C.findKidItem(cls, '22222222').id, 'bbbb00000000000022222222');
+  assert.equal(C.findKidItem(cls, '33333333'), null, 'item removed from the card');
+  const pruned = C.pruneGroups({ ...groups, '0000000009:aaaaaaaa': { s: 'X', i: {} } }, [cl], []);
+  assert.deepEqual(pruned, { [C.groupKey(cl, m)]: { s: 'KID00001', i: {} } }, 'gone checklist dropped, gone item dropped');
+  assert.deepEqual(C.pruneGroups(groups, [cl], [item]), groups);
+  assert.equal(C.kidCardName('PRODUCT LAUNCHES ', 'Spring merch 24.11'), 'PRODUCT LAUNCHES / Spring merch 24.11');
+  assert.equal(C.kidItemName('Approve with legal @maria_petrenko'), 'Approve with legal');
+  assert.equal(C.kidItemName('Video 🔴 for screens @a_b @c_d'), '🔴 Video for screens', 'priority first, no mentions');
+  assert.equal(C.kidItemName('🟠 Banner [3] @a_b', (n) => n.replace(/\s*\[3\]/, '')), '🟠 Banner', 'points text removed when asked');
+});
+
+test('checklist cards: ticks between the epic and the cards, the latest change wins', () => {
+  const T = (h) => '2026-11-17T' + h + ':00:00.000Z';
+  // nothing to do
+  assert.equal(C.tickDecision(true, true, {}), null);
+  assert.equal(C.tickDecision(false, false, {}), null);
+  // everyone ticked their items -> the epic follows
+  assert.equal(C.tickDecision(false, true, { kidTick: T('10') }), 'tick-epic');
+  assert.equal(C.tickDecision(false, true, {}), 'tick-epic', 'no history: the cards win');
+  // the epic was unticked by hand after the last tick in the cards -> the cards follow the epic
+  assert.equal(C.tickDecision(false, true, { kidTick: T('10'), epicUntick: T('11') }), 'untick-kids');
+  assert.equal(C.tickDecision(false, true, { kidTick: T('12'), epicUntick: T('11') }), 'tick-epic', 'ticked in the card again later');
+  // someone unticked their item after the epic was ticked -> the epic reopens
+  assert.equal(C.tickDecision(true, false, { epicTick: T('10'), kidUntick: T('11') }), 'untick-epic');
+  assert.equal(C.tickDecision(true, false, { kidUntick: T('11') }), 'untick-epic', 'the epic tick is older than the history');
+  // the epic was ticked by hand -> the open items in the cards are ticked too
+  assert.equal(C.tickDecision(true, false, { epicTick: T('12'), kidUntick: T('11') }), 'tick-kids');
+  assert.equal(C.tickDecision(true, false, { epicTick: T('12') }), 'tick-kids');
+  assert.equal(C.tickDecision(true, false, {}), 'tick-kids');
+  // our own copies never undo each other: after 'tick-kids' the cards have a newer tick, not an untick
+  assert.equal(C.tickDecision(true, false, { epicTick: T('12'), kidTick: T('13'), kidUntick: T('11') }), 'tick-kids');
+});
+
+test('checklist cards: lastState finds both directions', () => {
+  const tick = (id, state, date) => ({ date, data: { checkItem: { id, state } } });
+  const a = [tick('i1', 'incomplete', 'b'), tick('i1', 'complete', 'a'), tick('i2', 'incomplete', '0')];
+  assert.equal(C.lastState(a, 'i1', 'incomplete'), 'b');
+  assert.equal(C.lastState(a, 'i1', 'complete'), 'a');
+  assert.equal(C.lastState(a, 'i3', 'complete'), null);
+});
+
+test('checklist cards: groups + links of a big epic still fit in 4096 characters', () => {
+  const groups = {}, links = {};
+  // 4 checklists × 12 items, 2 people on every item, all in checklist cards, plus 20 separate TO DO cards
+  for (let c = 0; c < 4; c++) {
+    for (let m = 1; m <= 2; m++) {
+      const g = groups[C.groupKey('cl' + String(c).padStart(22, '0'), 'm1aaaaaaaaaaaaaaaaaaaa0' + m)] = { s: 'AbCdEf' + c + m, i: {} };
+      for (let i = 0; i < 12; i++) g.i[C.itemKey('5f12345678' + String(c * 100 + i).padStart(14, '0'))] = C.kidSuffix('ab' + String(c * 100 + i).padStart(22, '0'));
+    }
+  }
+  for (let i = 0; i < 20; i++) links[C.linkKey('6f12345678' + String(i).padStart(14, '0'), 'm1aaaaaaaaaaaaaaaaaaaa01')] = 'AbCdEfGh';
+  const size = JSON.stringify({ links, groups }).length;
+  assert.ok(size < 4096, 'size ' + size);
+});
