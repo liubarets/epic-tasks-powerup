@@ -1,8 +1,10 @@
 /* global TrelloPowerUp, EpicAuth, EpicPoints */
 // "Estimate story points" window (a Trello modal opened from the panel at the bottom of the board):
 // the TO DO cards of the person picked in the panel, one row each with quick values, so points can be set
-// without opening every card. Cards estimated here stay in the "No estimate" tab (marked ✓) until the
-// window is closed, so the rows don't jump under the mouse.
+// without opening every card. A card with a checklist gets a row for each open item instead: its points
+// are the sum of its open items (Teamload data "pts" on the card, see cardpoints.js).
+// Rows estimated here stay in the "No estimate" tab (marked ✓) until the window is closed, so the rows
+// don't jump under the mouse.
 (function () {
   'use strict';
   var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
@@ -23,11 +25,11 @@
   var ui = {
     person: undefined, // '' = everyone, '_none' = cards without members, else a member id
     tab: 'none',
-    keep: {},          // cards estimated in this window: stay listed with ✓
-    base: [],          // cards that had no estimate when the person was picked (for the progress line)
-    pending: {},       // cardId -> value being saved
-    saved: {},         // cardId -> value saved here, until Trello reports it back
-    errors: {},        // cardId -> message
+    keep: {},          // rows estimated in this window: stay listed with ✓
+    base: [],          // rows that had no estimate when the person was picked (for the progress line)
+    pending: {},       // row id -> value being saved
+    saved: {},         // row id -> value saved here, until Trello reports it back
+    errors: {},        // row id -> message
     dd: false, q: '', authed: true,
   };
   var queue = Promise.resolve();
@@ -82,19 +84,55 @@
 
   function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
 
-  // What the window shows for a card: the value being saved, else the one just saved, else Trello's.
-  function value(c) {
-    if (has(ui.pending, c.id)) return ui.pending[c.id];
-    if (has(ui.saved, c.id)) return ui.saved[c.id];
-    return P.cardPoints(c, data.field && data.field.id);
+  // The window's rows for the person's cards: a card, or each open item of a card with a checklist.
+  // { id, card, item?, name, sub? }
+  function rows() {
+    var out = [];
+    mine().forEach(function (c) {
+      var lists = data.checklists[c.id];
+      if (!lists) { out.push({ id: c.id, card: c, name: c.name }); return; }
+      P.allItems({ checklists: lists }).forEach(function (it) {
+        if (it.state !== 'complete') out.push({ id: c.id + ':' + it.id, card: c, item: it, name: it.name, sub: c.name });
+      });
+    });
+    return out;
+  }
+
+  // What the window shows for a row: the value being saved, else the one just saved, else Trello's / the card's data.
+  function value(r) {
+    if (has(ui.pending, r.id)) return ui.pending[r.id];
+    if (has(ui.saved, r.id)) return ui.saved[r.id];
+    if (r.item) return P.itemPoints(r.item, data.pts[r.card.id] || {});
+    return P.cardPoints(r.card, data.field && data.field.id);
   }
 
   function setPerson(pid) {
     ui.person = pid;
     ui.keep = {};
     ui.errors = {};
-    ui.base = mine().filter(function (c) { return value(c) == null; }).map(function (c) { return c.id; });
+    ui.base = rows().filter(function (r) { return value(r) == null; }).map(function (r) { return r.id; });
     ui.tab = ui.base.length ? 'none' : 'all';
+  }
+
+  // Checklists of the TO DO cards that have them, through Trello's /batch (10 routes per request),
+  // and their item points: { cardId: [checklists] }, { cardId: pts }.
+  function loadChecklists(cards) {
+    var withLists = cards.filter(function (c) { return c.badges && c.badges.checkItems; });
+    if (!withLists.length || !ui.authed) return Promise.resolve([{}, {}]);
+    var chunks = [];
+    for (var i = 0; i < withLists.length; i += 10) chunks.push(withLists.slice(i, i + 10));
+    var lists = {}, pts = {};
+    return Promise.all(chunks.map(function (part) {
+      return EpicAuth.request(t, 'GET', '/batch', { urls: part.map(function (c) { return '/cards/' + c.id + '/checklists'; }).join(',') })
+        .then(function (res) {
+          part.forEach(function (c, j) {
+            var x = res && res[j] && res[j]['200'];
+            if (x && x.length) lists[c.id] = x.sort(function (a, b) { return (a.pos || 0) - (b.pos || 0); });
+          });
+        });
+    }).concat(withLists.map(function (c) {
+      return Promise.resolve(t.get(c.id, 'shared', 'pts', {})).then(function (p) { pts[c.id] = p || {}; }, function () { pts[c.id] = {}; });
+    }))).then(function () { return [lists, pts]; }, function () { return [{}, {}]; });
   }
 
   function load() {
@@ -102,7 +140,7 @@
       t.get('board', 'shared', 'cfg', {}),
       t.board('id', 'members', 'customFields'),
       t.member('id', 'fullName', 'username', 'avatar', 'initials'),
-      t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems', 'pos'),
+      t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems', 'pos', 'badges'),
       t.lists('id', 'name'),
       t.get('member', 'private', 'spPerson'),
       EpicAuth.isAuthorized(t),
@@ -115,17 +153,24 @@
         .filter(function (x) { return !x.c.closed && x.c.idList === cfg.todoListId; })
         .sort(function (a, b) { return ((a.c.pos || 0) - (b.c.pos || 0)) || (a.i - b.i); })
         .map(function (x) { return x.c; });
-      data = { cfg: cfg, field: field, me: r[2] || {}, members: board.members || [], cards: cards, todo: todo,
-        listName: list ? list.name : 'TO DO' };
       ui.authed = !!r[6];
-      // Trello now has the values saved here: stop overriding them.
-      todo.forEach(function (c) {
-        if (has(ui.saved, c.id) && P.cardPoints(c, field && field.id) === ui.saved[c.id]) delete ui.saved[c.id];
+      var next = { cfg: cfg, field: field, me: r[2] || {}, members: board.members || [], cards: cards, todo: todo,
+        listName: list ? list.name : 'TO DO', checklists: {}, pts: {} };
+      return loadChecklists(todo).then(function (cl) {
+        next.checklists = cl[0];
+        next.pts = cl[1];
+        data = next;
+        // Trello now has the values saved here: stop overriding them.
+        rows().forEach(function (row) {
+          if (!has(ui.saved, row.id)) return;
+          var now = row.item ? P.itemPoints(row.item, data.pts[row.card.id] || {}) : P.cardPoints(row.card, field && field.id);
+          if (now === ui.saved[row.id]) delete ui.saved[row.id];
+        });
+        var pid = r[5] || '';
+        if (pid !== '_none' && pid && !memberById(pid)) pid = '';
+        if (ui.person === undefined || pid !== ui.person) setPerson(pid);
+        render();
       });
-      var pid = r[5] || '';
-      if (pid !== '_none' && pid && !memberById(pid)) pid = '';
-      if (ui.person === undefined || pid !== ui.person) setPerson(pid);
-      render();
     }).catch(function (e) {
       root.innerHTML = '<p class="msg error est-msg">' + esc((e && e.message) || e) + '</p>';
     });
@@ -159,19 +204,23 @@
     return html || '<p class="msg muted">Nobody found</p>';
   }
 
-  function rowHtml(c, showMembers) {
-    var cur = value(c), busy = has(ui.pending, c.id), err = ui.errors[c.id];
+  function rowHtml(r, showMembers) {
+    var c = r.card;
+    var cur = value(r), busy = has(ui.pending, r.id), err = ui.errors[r.id];
     var st = err ? '<span class="est-st err" title="' + esc(err) + '">!</span>'
-      : (ui.keep[c.id] && cur != null && !busy ? '<span class="est-st">' + CHECK + '</span>' : '<span class="est-st"></span>');
+      : (ui.keep[r.id] && cur != null && !busy ? '<span class="est-st">' + CHECK + '</span>' : '<span class="est-st"></span>');
     var ms = showMembers ? '<span class="est-ms">' + (c.members || []).slice(0, 2).map(function (m) {
       return avatar(memberById(m.id) || m, 'sp-av-24');
     }).join('') + '</span>' : '';
-    return '<div class="est-row" data-row="' + esc(c.id) + '">' + st +
-      '<button type="button" class="est-title" data-open="' + esc(c.id) + '" title="' + esc(c.name) + '">' + esc(c.name) + '</button>' + ms +
-      '<div class="est-chips" role="group" aria-label="' + esc('Story points for ' + c.name) + '">' +
+    var title = r.item
+      ? '<button type="button" class="est-title est-item" data-open="' + esc(c.id) + '" title="' + esc(r.name + ' — ' + c.name) + '">' +
+          esc(r.name) + '<small>' + esc(c.name) + '</small></button>'
+      : '<button type="button" class="est-title" data-open="' + esc(c.id) + '" title="' + esc(c.name) + '">' + esc(c.name) + '</button>';
+    return '<div class="est-row" data-row="' + esc(r.id) + '">' + st + title + ms +
+      '<div class="est-chips" role="group" aria-label="' + esc('Story points for ' + r.name) + '">' +
         VALUES.map(function (v) {
           var on = cur === v;
-          return '<button type="button" class="est-chip' + (on ? ' on' : '') + '" data-card="' + esc(c.id) + '" data-v="' + v + '" aria-pressed="' + on + '"' +
+          return '<button type="button" class="est-chip' + (on ? ' on' : '') + '" data-card="' + esc(r.id) + '" data-v="' + v + '" aria-pressed="' + on + '"' +
             (ui.authed ? '' : ' disabled') + '>' + P.fmt(v) + '</button>';
         }).join('') +
       '</div>' +
@@ -203,12 +252,12 @@
     }
 
     var p = personObj(ui.person);
-    var all = mine();
-    var none = all.filter(function (c) { return value(c) == null; }).length;
-    var rows = ui.tab === 'none' ? all.filter(function (c) { return value(c) == null || ui.keep[c.id]; }) : all;
+    var all = rows();
+    var none = all.filter(function (r) { return value(r) == null; }).length;
+    var shown = ui.tab === 'none' ? all.filter(function (r) { return value(r) == null || ui.keep[r.id]; }) : all;
     var done = ui.base.filter(function (id) {
-      var c = data.todo.filter(function (x) { return x.id === id; })[0];
-      return c && value(c) != null;
+      var r = all.filter(function (x) { return x.id === id; })[0];
+      return r && value(r) != null;
     }).length;
     var pct = ui.base.length ? Math.round(done * 100 / ui.base.length) : 100;
     var empty = ui.tab === 'none'
@@ -238,8 +287,9 @@
             '<div class="est-track"><span style="width:' + pct + '%"></span></div></div>' : '') +
         '</div>' +
         '<div class="est-head"><span class="c1"></span><span class="c2">Card</span><span class="c3">Story points</span></div>' +
-        '<div class="est-list" id="list">' + (rows.length ? rows.map(function (c) { return rowHtml(c, !ui.person); }).join('') : empty) + '</div>' +
-        '<div class="est-foot">Cards are in the same order as in the ' + esc(data.listName) + ' list. Click a card name to open it.</div>' +
+        '<div class="est-list" id="list">' + (shown.length ? shown.map(function (r) { return rowHtml(r, !ui.person); }).join('') : empty) + '</div>' +
+        '<div class="est-foot">Cards are in the same order as in the ' + esc(data.listName) + ' list. A card with a checklist is estimated item by item. ' +
+          'Click a name to open the card.</div>' +
       '</div>';
 
     var list = document.getElementById('list');
@@ -265,22 +315,44 @@
     });
   }
 
+  // An item's points go into the card's data; then the card's field gets the sum of its open items.
+  function saveItem(r, v) {
+    var c = r.card, k = P.itemKey(r.item.id);
+    return Promise.resolve(t.get(c.id, 'shared', 'pts', {})).then(function (pts) {
+      pts = pts || {};
+      pts[k] = v;
+      pts = P.prunePoints(pts, { checklists: data.checklists[c.id] });
+      data.pts[c.id] = pts;
+      return t.set(c.id, 'shared', 'pts', pts);
+    }).then(function () {
+      // "[3]" left in the item text would count instead of the value picked here, so it goes.
+      var clean = P.strip(r.item.name);
+      if (clean && clean !== r.item.name) {
+        r.item.name = clean;
+        return EpicAuth.request(t, 'PUT', '/cards/' + c.id + '/checkItem/' + r.item.id, { name: clean });
+      }
+    }).then(function () {
+      var sum = P.checklistField({ checklists: data.checklists[c.id] }, data.pts[c.id]);
+      if (sum !== undefined && sum !== P.fieldValue(c, data.field.id)) return P.setValue(t, c.id, data.field.id, sum);
+    });
+  }
+
   function save(id, v) {
-    var c = data.todo.filter(function (x) { return x.id === id; })[0];
-    if (!c || !data.field || !ui.authed) return;
-    if (value(c) === v && !has(ui.pending, id)) return;
-    var fieldId = data.field.id, cfg = data.cfg, name = c.name;
+    var r = rows().filter(function (x) { return x.id === id; })[0];
+    if (!r || !data.field || !ui.authed) return;
+    if (value(r) === v && !has(ui.pending, id)) return;
+    var c = r.card, fieldId = data.field.id, cfg = data.cfg, name = c.name;
     ui.pending[id] = v;
     ui.keep[id] = true;
     delete ui.errors[id];
     render();
     // One request at a time, in the order of the clicks.
     queue = queue.then(function () {
-      return P.setValue(t, id, fieldId, v).then(function () {
+      return (r.item ? saveItem(r, v) : P.setValue(t, c.id, fieldId, v).then(function () {
         // With "move [n] from titles" on, a leftover [n] would overwrite the value picked here, so it goes too.
         var clean = P.strip(name);
-        if (cfg.sp && cfg.sp.migrate && clean && clean !== name) return EpicAuth.request(t, 'PUT', '/cards/' + id, { name: clean });
-      }).then(function () {
+        if (cfg.sp && cfg.sp.migrate && clean && clean !== name) return EpicAuth.request(t, 'PUT', '/cards/' + c.id, { name: clean });
+      })).then(function () {
         if (ui.pending[id] === v) { delete ui.pending[id]; ui.saved[id] = v; }
         render();
       }, function (e) {

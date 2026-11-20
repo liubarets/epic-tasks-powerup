@@ -28,6 +28,11 @@
   }
 
   function render(msg) {
+    if (t.arg('items')) {
+      root.innerHTML = '<p class="msg">This card is estimated item by item: set points under each item in the ' +
+        '<b>STORY POINTS</b> section of the card. The card’s points are the sum of its open items.</p>';
+      return t.sizeTo('#root');
+    }
     if (!d.field) {
       root.innerHTML = '<p class="msg">The “' + esc(P.FIELD_NAME) + '” field isn’t on this board yet. Create it in Teamload settings.</p>';
       return t.sizeTo('#root');
