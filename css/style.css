@@ -39,7 +39,13 @@ button.link:disabled { color: var(--muted); cursor: default; text-decoration: no
 button.my-btn { background: var(--blue); color: #fff; border: 0; border-radius: 4px; font-size: 12px; line-height: 20px;
   padding: 2px 8px; margin: 0; font-weight: 600; }
 button.my-btn:hover { background: #0055cc; }
-.my-busy { color: var(--muted); font-size: 12px; }
+.my-progress { margin: 2px 0 8px; padding: 8px 10px; border-radius: 6px; background: var(--blue-soft); }
+.my-progress-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 13px; margin-bottom: 6px; }
+.my-progress-text small { color: var(--muted); font-size: 12px; }
+.my-progress .bar { display: block; height: 6px; background: #fff; }
+.my-progress .bar > span { background: var(--blue, #0c66e4); transition: width .3s ease; }
+.my-progress.ok { background: var(--green-soft); }
+.my-progress.ok .bar > span { background: var(--green); }
 .my-menu { border: 1px solid var(--line); border-radius: 8px; padding: 6px; margin: 4px 0 8px; background: #fff;
   box-shadow: 0 4px 8px #091e4226; }
 .my-menu-head { font-size: 12px; color: var(--muted); padding: 2px 6px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }

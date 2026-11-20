@@ -86,8 +86,8 @@ with sync_playwright() as p:
           "description and attachment link back to the epic")
     check(st["plugin"].get(kid["id"], {}).get("kid") == st["card"]["id"], "the card is marked as a checklist card of this epic")
     groups = st["plugin"]["card"].get("groups", {})
-    check(len(groups) == 1 and list(groups.values())[0]["s"] == kid["shortLink"] and len(list(groups.values())[0]["i"]) == 2,
-          f"epic remembers the card and its 2 items: {groups}")
+    check(len(groups) == 1 and list(groups.values())[0]["s"] == kid["shortLink"] and len(list(groups.values())[0]["i"]) == 2
+          and "f" not in list(groups.values())[0], f"epic remembers the card and its 2 items, no 'being filled' mark left: {groups}")
     chips = [page.locator(".item").nth(i).locator(".chip.kid").inner_text() for i in (0, 1)]
     check(all("☰ TO DO" in c for c in chips), f"chips say the items are in my checklist card: {chips}")
     check(page.locator(".my-btn").all_inner_texts() == ["＋ My cards (3) ▾"], "Spring has nothing left for me: its button is gone")
@@ -108,6 +108,11 @@ with sync_playwright() as p:
     # a new item for me in Spring goes into my card by itself, "[3]" becomes its points there
     page.evaluate("""() => { const S = window.__state; S.checklists[0].checkItems.push({ id: ('ci' + 9001).padStart(24, '0'),
       name: 'New banner [3] @maria_petrenko', state: 'incomplete', pos: 999999, due: '2026-12-01T10:00:00.000Z', idMember: null }); }""")
+    # while the card is being filled somewhere else, new items wait (no duplicates from two sessions)
+    page.evaluate("Object.values(window.__state.plugin.card.groups)[0].f = Date.now()")
+    refresh()
+    check(page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems.length") == 2, "card being filled elsewhere: new items wait")
+    page.evaluate("Object.values(window.__state.plugin.card.groups)[0].f = Date.now() - 4 * 60 * 1000")  # stale mark
     refresh()
     st = S()
     kid = [c for c in st["cards"].values() if c["id"] == kid["id"]][0]
@@ -221,6 +226,63 @@ with sync_playwright() as p:
     sp.wait_for_function("(window.__cardById('" + CARD + "').customFieldItems || []).some(x => x.value.number === '3')")
     check(True, "an item ticked in the card: its points drop out of the card's points (5 -> 3)")
     sp.close()
+
+    # ---------- "＋ My cards" runs in the background (connector), the section shows the progress ----------
+    cp = open_page("index.html", AS_MARIA)
+    cp.wait_for_function("!!window.__caps")
+    conn = cp.evaluate("async () => { const s = await window.__caps['card-back-section'](TrelloPowerUp.iframe()); return s.title === 'TASKS' && window.__signedArgs && window.__signedArgs.conn; }")
+    check(bool(conn), f"the TASKS section is told which connector holds the epic: {conn}")
+    cp.evaluate("window.__postDelay = 500")
+    sec = open_page("section.html", AS_MARIA, args={"conn": conn})
+    sec.wait_for_selector(".my-btn")
+    sec.locator(".my-btn").first.click()
+    sec.locator(".my-menu button", has_text="One card with a checklist").click()
+    sec.wait_for_function("document.querySelector('.progress-count') && /^[12]\\/3$/.test(document.querySelector('.progress-count').textContent)", timeout=5000)
+    prog = sec.locator(".my-progress").inner_text()
+    check("Creating your card…" in prog and "You can close this card" in prog, f"progress bar under the checklist: {prog!r}")
+    check(sec.locator(".cl").first.locator(".my-btn").count() == 0, "the button is hidden while its job runs")
+    sec.screenshot(path=str(OUT / "kid-5-progress.png"), full_page=True)
+    sec.close()  # the epic is closed half-way
+    cp.wait_for_function("window.__state.alerts.length > 0", timeout=10000)
+    st = cp.evaluate("window.__state")
+    bk = [c for c in st["cards"].values() if c["name"].endswith(" / Spring merch 24.11")]
+    check(len(bk) == 1 and [i["name"] for i in bk[0]["checklists"][0]["checkItems"]] == ["Approve with legal", "Tranfser to IT"],
+          f"the connector finished the card although the epic was closed: {[c['name'] for c in bk]}")
+    check(st["alerts"] == ["✓ Your card “PRODUCT LAUNCHES & UPDATES / Spring merch 24.11” is in TO DO"], f"alert when done: {st['alerts']}")
+    check(all("f" not in g for g in st["plugin"]["card"]["groups"].values()), "no 'being filled' mark left")
+    # reopening the epic while a job still runs shows its progress
+    cp.evaluate("window.__postDelay = 1500")
+    sec = open_page("section.html", AS_MARIA, args={"conn": conn})
+    sec.wait_for_selector(".my-btn")
+    sec.locator(".cl").nth(1).locator(".my-btn").click()
+    sec.locator(".my-menu button", has_text="A card for each item").click()
+    sec.wait_for_selector(".my-progress")
+    sec.close()
+    sec = open_page("section.html", AS_MARIA, args={"conn": conn})
+    sec.wait_for_selector(".cl .my-progress", timeout=5000)
+    prog = sec.locator(".cl").nth(1).locator(".my-progress").inner_text()
+    check("Creating your cards…" in prog, f"reopened epic shows the running job: {prog!r}")
+    check(sec.locator(".cl").nth(1).locator(".my-btn").count() == 0, "and no button for that checklist")
+    sec.wait_for_function("document.querySelector('.my-progress.ok')", timeout=10000)
+    check("✓ Created 3 TO DO cards" in sec.locator(".my-progress.ok").inner_text(), "the bar ends with ✓")
+    sec.screenshot(path=str(OUT / "kid-6-done.png"), full_page=True)
+    st = cp.evaluate("window.__state")
+    sep = [c["name"] for c in st["cards"].values() if c["name"].endswith("— Retail SDK - 26.11") and MARIA in c["idMembers"]]
+    check(len(sep) == 3 and st["alerts"][-1] == "✓ Created 3 TO DO cards", f"3 separate cards made by the connector: {sep} {st['alerts'][-1:]}")
+    sec.close()
+    cp.close()
+    # an old connector that doesn't answer: the section does the job itself and says to keep the card open
+    sec = open_page("section.html", AS_MARIA, args={"conn": "gone"})
+    sec.wait_for_selector(".my-btn")
+    sec.evaluate("window.__postDelay = 400")
+    sec.locator(".my-btn").first.click()
+    sec.locator(".my-menu button", has_text="One card with a checklist").click()
+    sec.wait_for_function("document.querySelector('.my-progress') && /Keep this card open/.test(document.querySelector('.my-progress').textContent)", timeout=5000)
+    sec.wait_for_function("Object.values(window.__state.cards).some(c => c.name.endsWith(' / Spring merch 24.11') && c.checklists && c.checklists[0] && c.checklists[0].checkItems.length === 2)", timeout=10000)
+    sec.wait_for_timeout(500)
+    n = sec.evaluate("Object.values(window.__state.cards).filter(c => c.name.endsWith(' / Spring merch 24.11')).length")
+    check(n == 1, f"no answer from the connector: done here, once: {n}")
+    sec.close()
 
     # ---------- connector: the field follows ticks while the card is closed ----------
     cp = open_page("index.html", TODO_CARD)

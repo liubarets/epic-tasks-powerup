@@ -242,9 +242,16 @@
       var i = {};
       Object.keys(g.i || {}).forEach(function (ik) { if (items[ik]) i[ik] = g.i[ik]; });
       out[k] = { s: g.s, i: i };
+      if (g.f) out[k].f = g.f;
     });
     return out;
   }
+
+  // A checklist card is being filled right now (its first items are still being added) somewhere:
+  // "f" is set when the card is created and removed when its items are in. Stale after 3 minutes
+  // (a closed board half-way), so new items flow into the card again.
+  var FILL_MS = 3 * 60 * 1000;
+  function isFilling(g, now) { return !!(g && g.f && now - g.f < FILL_MS); }
 
   // Checklist card name: "Epic name / Checklist name".
   function kidCardName(epicName, checklistName) {
@@ -312,6 +319,7 @@
     groupKey: groupKey,
     kidEntry: kidEntry,
     pruneGroups: pruneGroups,
+    isFilling: isFilling,
     kidCardName: kidCardName,
     kidItemName: kidItemName,
     tickDecision: tickDecision,

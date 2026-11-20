@@ -12,6 +12,8 @@ It adds a **"TASKS"** section to the back of an epic card:
 - **"＋ My cards (n) ▾"** in a checklist header, for the person who clicks: their open items of that checklist that have no card yet. Two choices:
   - **One card with a checklist**: a card "Epic / Checklist" in TO DO with that person as its member and a checklist of just their items (priority emoji and due dates kept, no @mentions). If they already have such a card for this checklist, the items are added to it.
   - **A card for each item**: separate cards, as the chips do.
+
+  The cards are made in the background by the board's connector, like "Add all to TO DO": a progress bar under the checklist header shows how far it got, closing the epic doesn't stop it, reopening the epic shows the bar again, and a Trello alert says when it's done. While a new checklist card is being filled, other sessions don't add the same items to it (a short-lived `f` mark in `groups`).
 - "Only mine" and "Hide completed" filters, open P1 counter.
 
 And **story points** for the board (turned on per board in settings):

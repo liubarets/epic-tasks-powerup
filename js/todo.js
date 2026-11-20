@@ -225,11 +225,15 @@
 
   // Records items added to a person's checklist card: groups[checklist × person] = { s: card, i: { item: suffix } }.
   // A new card for the same checklist × person replaces the old one (that one is done, archived or left).
-  function saveGroup(t, d, gk, shortLink, entries) {
+  // filling: true when the card has just been created and its items are about to be added (other sessions
+  // then leave it alone), false when they are in.
+  function saveGroup(t, d, gk, shortLink, entries, filling) {
     return t.get('card', 'shared', 'groups', {}).then(function (groups) {
       var g = groups[gk];
       if (!g || g.s !== shortLink) g = { s: shortLink, i: {} };
       Object.keys(entries || {}).forEach(function (k) { g.i[k] = entries[k]; });
+      if (filling) g.f = Date.now();
+      else if (filling === false) delete g.f;
       groups[gk] = g;
       groups = Core.pruneGroups(groups, d.checklists.map(function (cl) { return cl.id; }), itemIds(d));
       d.groups = groups;
@@ -377,7 +381,7 @@
         attach,
         // The card knows its epic: its TASKS section is not shown and it is estimated item by item.
         Promise.resolve(t.set(c.id, 'shared', 'kid', d.card.id)).catch(function () {}),
-        saveGroup(t, d, Core.groupKey(cl.id, memberId), c.shortLink, {}),
+        saveGroup(t, d, Core.groupKey(cl.id, memberId), c.shortLink, {}, true),
       ]).then(function () { return c; });
     });
   }
@@ -410,11 +414,15 @@
   // Adds items to the person's checklist card for this checklist, creating the card if they have none
   // (or theirs is done, archived or left). job = { checklist, memberId, items }. Resolves with the card.
   // Items go one by one, so they keep the epic's order; what was added is recorded even if a later step fails.
-  function addToKid(t, d, job, pos) {
+  // onProgress(done, total): creating the card is one step, every item another.
+  function addToKid(t, d, job, pos, onProgress) {
     var cl = job.checklist, gk = Core.groupKey(cl.id, job.memberId);
     var card = groupCard(d, cl.id, job.memberId);
     var entries = {}, points = {}, failed = null, taken = {};
-    return (card ? Promise.resolve(card) : createKidCard(t, d, cl, job.memberId, pos)).then(function (c) {
+    var done = 0, total = job.items.length + (card ? 0 : 1);
+    function step() { done++; if (onProgress) onProgress(done, total); }
+    if (onProgress) onProgress(0, total);
+    return (card ? Promise.resolve(card) : createKidCard(t, d, cl, job.memberId, pos).then(function (c) { step(); return c; })).then(function (c) {
       card = c;
       // Someone else (or another tab) may have just added some of these items: skip what is already recorded,
       // and read the card's checklists afresh.
@@ -427,6 +435,8 @@
         var have = g && g.s === card.shortLink ? g.i || {} : {};
         if (r[1]) card.checklists = r[1];
         job = { checklist: cl, memberId: job.memberId, items: job.items.filter(function (it) { return !have[Core.itemKey(it.id)]; }) };
+        total = done + job.items.length;
+        if (onProgress) onProgress(done, total);
         taken = {};
         Object.keys(have).forEach(function (k) { taken[have[k]] = true; });
         return kidChecklist(t, card, cl);
@@ -445,6 +455,7 @@
             entries[Core.itemKey(it.id)] = Core.kidSuffix(same.id);
             var pv = P() ? P().parse(it.name) : null;
             if (pv != null) points[P().itemKey(same.id)] = pv;
+            step();
             return null;
           }
           return api(t, 'POST', '/checklists/' + list.id + '/checkItems', {
@@ -456,11 +467,12 @@
             // "[3]" in the epic item: the person's item starts with these points.
             var v = P() ? P().parse(it.name) : null;
             if (v != null) points[P().itemKey(ci.id)] = v;
+            step();
           }, function (e) { failed = e; });
         });
       }, Promise.resolve());
     }).then(function () {
-      return saveGroup(t, d, gk, card.shortLink, entries);
+      return saveGroup(t, d, gk, card.shortLink, entries, false);
     }).then(function () {
       if (!Object.keys(points).length) return null;
       return Promise.resolve(t.get(card.id, 'shared', 'pts', {})).then(function (pts) {
@@ -476,30 +488,32 @@
   }
 
   // "＋ My cards → One card with a checklist".
-  function addMyChecklistCard(t, d, checklistId) {
+  function addMyChecklistCard(t, d, checklistId, onProgress) {
     var err = todoListError(d);
     if (err) return Promise.reject(err);
     var cl = d.checklists.filter(function (x) { return x.id === checklistId; })[0];
     var items = cl ? myPending(d, cl, d.me.id).map(function (j) { return j.item; }) : [];
     if (!items.length) return Promise.resolve(null);
-    return addToKid(t, d, { checklist: cl, memberId: d.me.id, items: items });
+    return addToKid(t, d, { checklist: cl, memberId: d.me.id, items: items }, undefined, onProgress);
   }
 
   // "＋ My cards → A card for each item".
-  function addMySeparateCards(t, d, checklistId) {
+  function addMySeparateCards(t, d, checklistId, onProgress) {
     var cl = d.checklists.filter(function (x) { return x.id === checklistId; })[0];
-    return addMany(t, d, cl ? myPending(d, cl, d.me.id) : [], null);
+    return addMany(t, d, cl ? myPending(d, cl, d.me.id) : [], onProgress);
   }
 
   // ---- Keeping the epic and the cards in step (runs when someone opens the epic) ----
 
   // A new item for a person who has a checklist card for its checklist goes into that card.
   function appendNewItems(t, d) {
-    var jobs = [];
+    var jobs = [], now = Date.now();
     d.checklists.forEach(function (cl) {
       var by = {};
       pendingInChecklist(d, cl).forEach(function (j) {
         if (!groupCard(d, cl.id, j.memberId)) return;
+        // Its first items are being added right now (here or in another session): leave it to that job.
+        if (Core.isFilling(d.groups[Core.groupKey(cl.id, j.memberId)], now)) return;
         (by[j.memberId] = by[j.memberId] || { checklist: cl, memberId: j.memberId, items: [] }).items.push(j.item);
       });
       Object.keys(by).forEach(function (m) { jobs.push(by[m]); });

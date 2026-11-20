@@ -9,7 +9,8 @@
   var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
   var root = document.getElementById('root');
 
-  var ui = { mine: false, hideDone: false, busy: {}, error: null, menu: null };
+  // jobs: "＋ My cards" running for a checklist (here or in the connector) -> its progress bar.
+  var ui = { mine: false, hideDone: false, busy: {}, error: null, menu: null, jobs: {} };
   var data = null;
 
   function api(method, path, params) { return Todo.api(t, method, path, params); }
@@ -20,9 +21,12 @@
   var channel = null;
   try { channel = new BroadcastChannel('epic-tasks-addall'); } catch (e) { channel = null; }
   var pendingOps = {};
+  var conn = t.arg('conn');  // the connector that holds this epic's context (older connectors don't say)
+  var epicId = null;
   if (channel) {
     channel.onmessage = function (ev) {
       var m = ev.data || {};
+      if (conn && m.from === conn && m.type && m.type.indexOf('mine-') === 0) { onMine(m); return; }
       var p = m.id && pendingOps[m.id];
       if (!p) return;
       if (m.type === 'ops-ack') p.acked = true;
@@ -163,8 +167,7 @@
 
   // "＋ My cards (n) ▾": only for the person who looks, only their open items without a card yet.
   function myCardsHtml(cl) {
-    if (!data.me) return '';
-    if (ui.busy['my:' + cl.id]) return '<span class="my-busy">Creating your cards…</span>';
+    if (!data.me || ui.jobs[cl.id]) return '';
     var n = Todo.myPending(data, cl, data.me.id).length;
     if (!n) return '';
     return '<button class="my-btn" data-action="mymenu" data-cl="' + esc(cl.id) + '" aria-expanded="' + (ui.menu === cl.id) + '"' +
@@ -186,6 +189,28 @@
       '</div>';
   }
 
+  // Progress of "＋ My cards" under the checklist's header.
+  function progressHtml(cl) {
+    var j = ui.jobs[cl.id];
+    if (!j) return '';
+    var kid = j.mode === 'kid';
+    var text, cls = 'my-progress';
+    if (j.error) return '';
+    if (j.finished) {
+      cls += ' ok';
+      text = kid ? '✓ Your card is in TO DO' : '✓ Created ' + j.n + ' TO DO card' + (j.n === 1 ? '' : 's');
+    } else if (j.queued) {
+      text = 'Waiting for your other cards to finish…';
+    } else {
+      text = (kid ? 'Creating your card…' : 'Creating your cards…') + ' <b class="progress-count">' + (j.total ? j.done + '/' + j.total : '…') + '</b>';
+    }
+    var pct = j.finished ? 100 : j.total ? Math.round(j.done / j.total * 100) : 0;
+    var hint = j.finished ? '' : j.remote ? 'You can close this card: it keeps going.' : 'Keep this card open until it finishes.';
+    return '<div class="' + cls + '" role="status"><div class="my-progress-text"><span>' + text + '</span>' +
+      (hint ? '<small>' + hint + '</small>' : '') + '</div>' +
+      '<div class="bar"><span style="width:' + pct + '%"></span></div></div>';
+  }
+
   function checklistHtml(cl) {
     var total = cl.checkItems.length;
     var done = cl.checkItems.filter(function (i) { return i.state === 'complete'; }).length;
@@ -200,7 +225,7 @@
       '<button class="link" data-action="sort" data-cl="' + esc(cl.id) + '" title="Sort items: P1 → P2 → P3 → no priority">↕ Sort by priority</button>' +
       myCardsHtml(cl) +
       '</span>' +
-      '</div>' + myMenuHtml(cl) + '<ul>' + rows + '</ul></section>';
+      '</div>' + progressHtml(cl) + myMenuHtml(cl) + '<ul>' + rows + '</ul></section>';
   }
 
   function render() {
@@ -275,6 +300,101 @@
     return promise.then(refresh, function (e) { handleError(e); return refresh(); });
   }
 
+  // ------------------------------------------------------------------ "＋ My cards" jobs
+
+  // Hands the job to the connector, which keeps running while the board is open; the section only shows
+  // the progress. Without an answer from it (an older cached connector) the job runs here.
+  function startMine(clId, mode) {
+    var cl = data && data.checklists.filter(function (x) { return x.id === clId; })[0];
+    if (!cl || !data.me || ui.jobs[clId]) return;
+    var n = Todo.myPending(data, cl, data.me.id).length;
+    if (!n) return;
+    var total = mode === 'kid' && !Todo.groupCard(data, clId, data.me.id) ? n + 1 : n;
+    var job = ui.jobs[clId] = { mode: mode, total: total, done: 0, remote: false };
+    ui.error = null;
+    render();
+    if (!channel || !conn) { runMineHere(clId, job); return; }
+    var id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    job.id = id;
+    channel.postMessage({ type: 'mine', to: conn, id: id, cardId: data.card.id, checklistId: clId, mode: mode, total: total });
+    setTimeout(function () {
+      if (job.acked || ui.jobs[clId] !== job) return;
+      channel.postMessage({ type: 'mine-abort', to: conn, id: id });
+      runMineHere(clId, job);
+    }, 1500);
+  }
+
+  function runMineHere(clId, job) {
+    var bk = 'my:' + clId;
+    job.remote = false;
+    ui.busy[bk] = 1;  // no refresh half-way (see refresh)
+    function progress(n, total) { job.done = n; job.total = total; render(); }
+    var p = job.mode === 'kid' ? Todo.addMyChecklistCard(t, data, clId, progress).then(function () { return 0; })
+      : Todo.addMySeparateCards(t, data, clId, progress);
+    p.then(function (n) {
+      delete ui.busy[bk]; refreshAgain = false;
+      mineDone(clId, job, { finished: true, n: n });
+    }, function (e) {
+      delete ui.busy[bk]; refreshAgain = false;
+      mineDone(clId, job, { error: (e && e.message) || String(e) });
+    });
+  }
+
+  // The job ended: the bar shows ✓ for a moment, the section reloads.
+  function mineDone(clId, job, end) {
+    if (ui.jobs[clId] !== job) return;
+    if (end.error) {
+      delete ui.jobs[clId];
+      ui.error = end.error;
+    } else {
+      job.finished = true; job.n = end.n || 0;
+      setTimeout(function () { if (ui.jobs[clId] === job) { delete ui.jobs[clId]; render(); } }, 2500);
+    }
+    refresh();
+  }
+
+  // Messages from the connector about "＋ My cards" jobs on this epic.
+  function onMine(m) {
+    if (m.type === 'mine-ack') {
+      Object.keys(ui.jobs).forEach(function (clId) {
+        var job = ui.jobs[clId];
+        if (job.id !== m.id || job.acked || ui.busy['my:' + clId]) return;  // late: it already runs here
+        job.acked = true;
+        if (m.ok) { job.remote = true; render(); } else runMineHere(clId, job);
+      });
+      return;
+    }
+    if (!epicId || m.cardId !== epicId) return;
+    if (m.type === 'mine-state') {
+      // The epic reopened while its jobs still run in the background.
+      Object.keys(m.jobs || {}).forEach(function (clId) {
+        var j = m.jobs[clId];
+        if (!j || j.finished || j.error || ui.jobs[clId]) return;
+        ui.jobs[clId] = { mode: j.mode, total: j.total, done: j.done, queued: j.queued, remote: true, acked: true };
+      });
+      render();
+    } else if (m.type === 'mine-progress') {
+      var job = ui.jobs[m.checklistId], j = m.job;
+      if (!j) { if (job && job.remote) { delete ui.jobs[m.checklistId]; refresh(); } return; }
+      if (!job) {
+        if (j.finished || j.error) return;
+        job = ui.jobs[m.checklistId] = { mode: j.mode, remote: true, acked: true };
+      }
+      if (!job.remote) return;  // running here
+      job.done = j.done; job.total = j.total; job.queued = j.queued;
+      if (j.finished) mineDone(m.checklistId, job, { finished: true, n: j.n });
+      else if (j.error) mineDone(m.checklistId, job, { error: j.error });
+      else render();
+    }
+  }
+
+  if (channel && conn) {
+    Promise.resolve(t.card('id')).then(function (c) {
+      epicId = c && c.id;
+      if (epicId) channel.postMessage({ type: 'mine-hello', to: conn, cardId: epicId });
+    }).catch(function () {});
+  }
+
   // ------------------------------------------------------------------ events
 
   root.addEventListener('click', function (e) {
@@ -303,12 +423,8 @@
       ui.menu = ui.menu === mc ? null : mc;
       render();
     } else if (a === 'mykid' || a === 'mysep') {
-      var clId = el.getAttribute('data-cl'), bk = 'my:' + clId;
-      if (ui.busy[bk]) return;
-      ui.menu = null; ui.busy[bk] = 1; render();
-      var job = a === 'mykid' ? Todo.addMyChecklistCard(t, data, clId) : Todo.addMySeparateCards(t, data, clId);
-      var free = function () { delete ui.busy[bk]; refreshAgain = false; };
-      run(job.then(free, function (err) { free(); throw err; })).then(render);
+      ui.menu = null;
+      startMine(el.getAttribute('data-cl'), a === 'mykid' ? 'kid' : 'sep');
     }
   });
 

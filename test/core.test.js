@@ -191,3 +191,13 @@ test('checklist cards: groups + links of a big epic still fit in 4096 characters
   const size = JSON.stringify({ links, groups }).length;
   assert.ok(size < 4096, 'size ' + size);
 });
+
+test('isFilling: fresh mark only, pruneGroups keeps it', () => {
+  const now = Date.now();
+  assert.equal(C.isFilling({ s: 'A', i: {}, f: now - 1000 }, now), true);
+  assert.equal(C.isFilling({ s: 'A', i: {}, f: now - 4 * 60 * 1000 }, now), false);
+  assert.equal(C.isFilling({ s: 'A', i: {} }, now), false);
+  assert.equal(C.isFilling(undefined, now), false);
+  const g = C.pruneGroups({ '0000000cl1:00000001': { s: 'A', i: {}, f: 5 } }, ['cl1'.padStart(24, '0')], []);
+  assert.equal(g['0000000cl1:00000001'].f, 5);
+});

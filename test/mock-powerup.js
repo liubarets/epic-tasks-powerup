@@ -104,6 +104,12 @@
       (kc.checklists = kc.checklists || []).push(ncl);
       return json(clone(ncl));
     }
+    if (method === 'POST' && /\/checkItems$/.test(path) && window.__postDelay && !(init && init.__noDelay)) {
+      S.requests.pop();
+      return new Promise(function (res) { setTimeout(res, window.__postDelay); }).then(function () {
+        return window.fetch(url, Object.assign({}, init, { __noDelay: true }));
+      });
+    }
     if (method === 'POST' && (m = path.match(/^\/checklists\/([^/]+)\/checkItems$/))) {
       var hit = null;
       Object.values(S.cards).forEach(function (c) { (c.checklists || []).forEach(function (cl) { if (cl.id === m[1]) hit = cl; }); });
@@ -248,7 +254,7 @@
     alert: function (o) { S.alerts.push(o.message); return Promise.resolve(); },
     closePopup: function () { S.closed = (S.closed || 0) + 1; return Promise.resolve(); },
     showCard: function (cid) { S.shown.push(cid); return Promise.resolve(); },
-    signUrl: function (u) { return u; },
+    signUrl: function (u, a) { window.__signedArgs = a; return u; },
     arg: function (n) { return (window.__args || {})[n]; },
     getRestApi: function () {
       return { getToken: function () { return Promise.resolve(S.noToken ? null : 'tok'); }, isAuthorized: function () { return Promise.resolve(!S.noToken); },

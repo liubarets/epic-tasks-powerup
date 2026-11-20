@@ -2,6 +2,7 @@
 // Iframe connector: tells Trello which capabilities this Power-Up provides.
 // It stays loaded while the board is open, so it also runs work in the background:
 // - "Add all to TO DO": the popup only picks what to add and shows progress; closing it doesn't stop the job;
+// - "＋ My cards" from the TASKS section: the section shows the progress; closing the epic doesn't stop the job;
 // - priority changes and sorting from the TASKS section: they finish even if the epic is closed at once.
 (function () {
   'use strict';
@@ -50,6 +51,52 @@
     }).catch(function () {});
   }
 
+  // "＋ My cards" jobs handed over by the TASKS section of an epic opened in this tab. They run one after
+  // another (each one rewrites the epic's Teamload data), with the epic's own context from card-back-section.
+  var epics = {};     // epic card id -> its t
+  var mine = {};      // epic card id -> { checklistId: { mode, total, done, queued, finished, error, name, n } }
+  var mineQueue = Promise.resolve();
+  var aborted = {};
+
+  function publishMine(cardId, clId) {
+    post({ type: 'mine-progress', cardId: cardId, checklistId: clId, job: mine[cardId][clId] });
+  }
+
+  function startMine(m) {
+    var t = epics[m.cardId];
+    if (!t) return false;
+    var jobs = mine[m.cardId] = mine[m.cardId] || {};
+    if (running(jobs[m.checklistId])) return true;
+    var job = jobs[m.checklistId] = { mode: m.mode, total: m.total || 0, done: 0, queued: true, finished: false, error: null };
+    publishMine(m.cardId, m.checklistId);
+    function progress(n, total) { job.done = n; job.total = total; publishMine(m.cardId, m.checklistId); }
+    mineQueue = mineQueue.then(function () {
+      job.queued = false;
+      publishMine(m.cardId, m.checklistId);
+      return EpicTodo.load(t).then(function (d) {
+        // The section gave up waiting and does the job itself.
+        if (aborted[m.id]) return { skip: true };
+        if (m.mode === 'kid') return EpicTodo.addMyChecklistCard(t, d, m.checklistId, progress).then(function (c) { return { card: c }; });
+        return EpicTodo.addMySeparateCards(t, d, m.checklistId, progress).then(function (n) { return { n: n }; });
+      }).then(function (r) {
+        if (r.skip) { delete jobs[m.checklistId]; publishMine(m.cardId, m.checklistId); return null; }
+        job.finished = true;
+        job.name = r.card ? r.card.name : null;
+        job.n = r.n || 0;
+        publishMine(m.cardId, m.checklistId);
+        var text = r.card ? '✓ Your card “' + r.card.name + '” is in TO DO'
+          : r.n ? '✓ Created ' + plural(r.n) : null;
+        return text ? t.alert({ message: text, display: 'success', duration: 5 })
+                    : t.alert({ message: 'Nothing to add.', display: 'info', duration: 5 });
+      }, function (e) {
+        job.error = (e && e.message) || String(e);
+        publishMine(m.cardId, m.checklistId);
+        return t.alert({ message: job.error, display: 'error', duration: 10 });
+      }).catch(function () {});
+    });
+    return true;
+  }
+
   // REST calls handed over by the TASKS section (priority changes, sorting), so they finish even if
   // the epic is closed right away. Run one after another, in the order they were made.
   function runOps(m) {
@@ -72,6 +119,12 @@
     channel.onmessage = function (ev) {
       var m = ev.data || {};
       if (m.type === 'ops') { if (lastT && m.ops && m.ops.length) runOps(m); return; }
+      if (m.to === me) {
+        if (m.type === 'mine') post({ type: 'mine-ack', id: m.id, ok: startMine(m) });
+        else if (m.type === 'mine-abort') aborted[m.id] = true;
+        else if (m.type === 'mine-hello') post({ type: 'mine-state', cardId: m.cardId, jobs: mine[m.cardId] || {} });
+        return;
+      }
       var ctx = m.token && contexts[m.token];
       if (!ctx) return;  // that popup belongs to another board tab
       ctx.ready.then(function (cardId) {
@@ -253,7 +306,7 @@
     'card-back-section': function (t) {
       lastT = t;
       return Promise.all([
-        t.card('idList', 'badges'),
+        t.card('id', 'idList', 'badges'),
         t.get('card', 'shared', 'kid'),
         t.get('card', 'shared', 'pts'),
         spCfg(t),
@@ -265,10 +318,12 @@
           return { title: 'STORY POINTS', icon: BOLT, content: { type: 'iframe', url: t.signUrl('./cardpoints.html'), height: 160 } };
         }
         if (kid) return null;  // a person's checklist card is not an epic: no TO DO cards from it
+        if (card.id) epics[card.id] = t;
         return {
           title: 'TASKS',
           icon: ICON,
-          content: { type: 'iframe', url: t.signUrl('./section.html'), height: 200 },
+          // conn: which connector holds this epic's context, so "＋ My cards" can run there in the background.
+          content: { type: 'iframe', url: t.signUrl('./section.html', { conn: me }), height: 200 },
           action: { text: '＋ Add all to TO DO', callback: addAllMenu },
         };
       });
