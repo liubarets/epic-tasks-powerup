@@ -160,13 +160,21 @@ with sync_playwright() as p:
     page.evaluate(f"window.__tickIn('{kid['id']}', '{k3}', 'complete')")
     refresh()
     check(S()["checklists"][0]["checkItems"][4]["state"] == "incomplete", "shared item: my tick alone does not close it in the epic")
+    # two sessions adding at once: the item is already in my card (added a moment ago elsewhere) -> linked, not added twice
+    page.evaluate(f"""() => {{ const S = window.__state, c = window.__cardById('{kid['id']}');
+      S.checklists[0].checkItems.push({{ id: ('ci' + 9003).padStart(24, '0'), name: 'Adopt me @maria_petrenko', state: 'incomplete', pos: 99999999 }});
+      c.checklists[0].checkItems.push({{ id: ('ki' + 9003).padStart(24, '0'), name: 'Adopt me', state: 'incomplete', pos: 99999999 }}); }}""")
+    refresh()
+    names = page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems.map(i => i.name)")
+    check(names.count("Adopt me") == 1 and len(names) == 5, f"an item already in the card is linked, not added again: {names}")
+    check("☰ TO DO" in page.locator(".item", has_text="Adopt me").locator(".chip").first.inner_text(), "its chip shows it is in my card")
     page.screenshot(path=str(OUT / "kid-2-epic.png"), full_page=True)
 
     # my card went to Done: a new item does not go there, "My cards" offers it again
     page.evaluate(f"""() => {{ window.__cardById('{kid['id']}').idList = 'L_done';
       window.__state.checklists[0].checkItems.push({{ id: ('ci' + 9002).padStart(24, '0'), name: 'Late item @maria_petrenko', state: 'incomplete', pos: 9999999 }}); }}""")
     refresh()
-    check(page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems.length") == 4, "card in Done: new items are not added to it")
+    check(page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems.length") == 5, "card in Done: new items are not added to it")
     check(page.locator(".my-btn").all_inner_texts() == ["＋ My cards (1) ▾"], "the new item is offered in 'My cards' again")
     real = [e for e in errors if "favicon" not in e]
     check(not real, f"no JS errors in the epic: {real}")

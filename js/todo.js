@@ -413,14 +413,22 @@
   function addToKid(t, d, job, pos) {
     var cl = job.checklist, gk = Core.groupKey(cl.id, job.memberId);
     var card = groupCard(d, cl.id, job.memberId);
-    var entries = {}, points = {}, failed = null;
+    var entries = {}, points = {}, failed = null, taken = {};
     return (card ? Promise.resolve(card) : createKidCard(t, d, cl, job.memberId, pos)).then(function (c) {
       card = c;
-      // Someone else (or another tab) may have just added some of these items: skip what is already recorded.
-      return Promise.resolve(t.get('card', 'shared', 'groups', {})).then(function (groups) {
-        var g = (groups || {})[gk];
+      // Someone else (or another tab) may have just added some of these items: skip what is already recorded,
+      // and read the card's checklists afresh.
+      return Promise.all([
+        t.get('card', 'shared', 'groups', {}),
+        api(t, 'GET', '/cards/' + card.id + '/checklists', { checkItems: 'all', checkItem_fields: 'name,state,pos,due', fields: 'name,pos' })
+          .catch(function () { return null; }),
+      ]).then(function (r) {
+        var g = (r[0] || {})[gk];
         var have = g && g.s === card.shortLink ? g.i || {} : {};
+        if (r[1]) card.checklists = r[1];
         job = { checklist: cl, memberId: job.memberId, items: job.items.filter(function (it) { return !have[Core.itemKey(it.id)]; }) };
+        taken = {};
+        Object.keys(have).forEach(function (k) { taken[have[k]] = true; });
         return kidChecklist(t, card, cl);
       });
     }).then(function (list) {
@@ -428,10 +436,22 @@
         return p.then(function () {
           if (failed) return null;
           var strip = P() ? P().strip : null;
+          // An item with this name already in the card and not linked to anything (added a moment ago by
+          // another session, or by hand): link it instead of adding a second one.
+          var name = Core.kidItemName(it.name, strip);
+          var same = (list.checkItems || []).filter(function (ci) { return ci.name === name && !taken[Core.kidSuffix(ci.id)]; })[0];
+          if (same) {
+            taken[Core.kidSuffix(same.id)] = true;
+            entries[Core.itemKey(it.id)] = Core.kidSuffix(same.id);
+            var pv = P() ? P().parse(it.name) : null;
+            if (pv != null) points[P().itemKey(same.id)] = pv;
+            return null;
+          }
           return api(t, 'POST', '/checklists/' + list.id + '/checkItems', {
             name: Core.kidItemName(it.name, strip), pos: 'bottom', due: it.due || undefined,
           }).then(function (ci) {
             list.checkItems.push({ id: ci.id, name: ci.name, state: 'incomplete', pos: ci.pos, due: ci.due || null });
+            taken[Core.kidSuffix(ci.id)] = true;
             entries[Core.itemKey(it.id)] = Core.kidSuffix(ci.id);
             // "[3]" in the epic item: the person's item starts with these points.
             var v = P() ? P().parse(it.name) : null;

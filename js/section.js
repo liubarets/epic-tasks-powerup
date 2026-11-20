@@ -241,6 +241,9 @@
   var refreshAgain = false;
   function refresh() {
     if (refreshing) { refreshAgain = true; return refreshing; }
+    // While cards are being created here, no refresh: one half-way would see a new card without its items
+    // yet and add them again. The refresh after the job catches up.
+    if (Object.keys(ui.busy).length) { refreshAgain = true; return Promise.resolve(); }
     refreshing = doRefresh().then(function () {
       refreshing = null;
       if (refreshAgain) { refreshAgain = false; return refresh(); }
@@ -304,7 +307,7 @@
       if (ui.busy[bk]) return;
       ui.menu = null; ui.busy[bk] = 1; render();
       var job = a === 'mykid' ? Todo.addMyChecklistCard(t, data, clId) : Todo.addMySeparateCards(t, data, clId);
-      var free = function () { delete ui.busy[bk]; };
+      var free = function () { delete ui.busy[bk]; refreshAgain = false; };
       run(job.then(free, function (err) { free(); throw err; })).then(render);
     }
   });
@@ -332,8 +335,5 @@
   // Trello calls this on load and whenever pluginData/context changes. While cards are being created here,
   // Trello's calls are skipped: a refresh half-way would see a new card without its items yet and add them
   // again; the refresh after the job catches up.
-  t.render(function () {
-    if (Object.keys(ui.busy).length) { refreshAgain = true; return null; }
-    return refresh();
-  });
+  t.render(function () { return refresh(); });
 })();
