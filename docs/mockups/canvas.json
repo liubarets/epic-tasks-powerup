@@ -1,0 +1,141 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-17T13:31:50Z"
+  },
+  "title": "Story points: варіанти",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "A5-estimate.dc.html": {
+      "x": 0,
+      "y": -1060,
+      "w": 1480,
+      "h": 900,
+      "title": "v4 · Оцінка з панелі (без відкриття картки)",
+      "is_interactive": true
+    },
+    "A6-popup-15.dc.html": {
+      "x": 1560,
+      "y": -1060,
+      "w": 1480,
+      "h": 900,
+      "title": "v4 · 15 карток у попапі (варіант 1)",
+      "is_interactive": true
+    },
+    "A6-modal-15.dc.html": {
+      "x": 3120,
+      "y": -1060,
+      "w": 1480,
+      "h": 900,
+      "title": "v4 · 15 карток у великому вікні (варіант 2)",
+      "is_interactive": true
+    },
+    "A4-top-sum.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1480,
+      "h": 900,
+      "title": "A4 · Сума вгорі (кнопка у шапці)",
+      "is_interactive": true
+    },
+    "A4-top-picker.dc.html": {
+      "x": 1560,
+      "y": 0,
+      "w": 1480,
+      "h": 900,
+      "title": "A4 · Вибір людини вгорі",
+      "is_interactive": true
+    },
+    "A3-sum.dc.html": {
+      "x": 0,
+      "y": 1060,
+      "w": 1480,
+      "h": 900,
+      "title": "v3 · A3 · Сума по одній людині",
+      "is_interactive": true
+    },
+    "A3-picker.dc.html": {
+      "x": 1560,
+      "y": 1060,
+      "w": 1480,
+      "h": 900,
+      "title": "v3 · A3 · Вибір людини (список відкритий)",
+      "is_interactive": true
+    },
+    "A2-panel.dc.html": {
+      "x": 0,
+      "y": 2120,
+      "w": 1480,
+      "h": 900,
+      "title": "v2 · A2 · Панель Story points (TO DO)",
+      "is_interactive": true
+    },
+    "A2-card-badge.dc.html": {
+      "x": 1560,
+      "y": 2120,
+      "w": 1480,
+      "h": 1100,
+      "title": "v2 · A2 · Бали бейджем на картці",
+      "is_interactive": true
+    },
+    "A-board-bar.dc.html": {
+      "x": 0,
+      "y": 3380,
+      "w": 1480,
+      "h": 900,
+      "title": "v1 · A · Панель внизу дошки (рекомендую)",
+      "is_interactive": true
+    },
+    "B-table.dc.html": {
+      "x": 1560,
+      "y": 3380,
+      "w": 1480,
+      "h": 900,
+      "title": "v1 · B · Кнопка → таблиця навантаження",
+      "is_interactive": true
+    },
+    "C-list-menu.dc.html": {
+      "x": 3120,
+      "y": 3380,
+      "w": 1480,
+      "h": 900,
+      "title": "v1 · C · Пункт у меню списку"
+    },
+    "D-list-names.dc.html": {
+      "x": 0,
+      "y": 4400,
+      "w": 1480,
+      "h": 900,
+      "title": "v1 · D · Сума в назві списку"
+    },
+    "E-extension.dc.html": {
+      "x": 1560,
+      "y": 4400,
+      "w": 1480,
+      "h": 900,
+      "title": "v1 · E · Розширення Chrome через IT"
+    }
+  },
+  "order": [
+    "A4-top-sum.dc.html",
+    "A4-top-picker.dc.html",
+    "A3-sum.dc.html",
+    "A3-picker.dc.html",
+    "A2-panel.dc.html",
+    "A2-card-badge.dc.html",
+    "A-board-bar.dc.html",
+    "B-table.dc.html",
+    "C-list-menu.dc.html",
+    "D-list-names.dc.html",
+    "E-extension.dc.html",
+    "A5-estimate.dc.html",
+    "A6-popup-15.dc.html",
+    "A6-modal-15.dc.html"
+  ],
+  "notes": {},
+  "designSystems": []
+}

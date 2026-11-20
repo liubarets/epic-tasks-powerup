@@ -146,6 +146,35 @@
     Promise.resolve(t.set('member', 'private', 'spBar', true)).catch(function () {});
     return bar;
   }
+  // A card with a checklist that is estimated item by item ("pts" in its Teamload data): its "Story points"
+  // field is the sum of its open items. Trello redraws a card's badges when the card changes (an item ticked,
+  // added or removed), so the field follows at once while anyone who connected Teamload has the board open.
+  var fieldQueue = Promise.resolve();
+  var settingField = {};
+  function itemsValue(t, card) {
+    if (!(card.badges || {}).checkItems) return Promise.resolve(undefined);
+    return Promise.resolve(t.get('card', 'shared', 'pts', {})).then(function (pts) {
+      if (!pts || !Object.keys(pts).length) return undefined;
+      return t.card('checklists').then(function (c) {
+        return P.checklistField({ checklists: (c && c.checklists) || [] }, pts);
+      });
+    }).catch(function () { return undefined; });
+  }
+  function maybeSetField(t, card, c, v) {
+    if (!c.fieldId || v === undefined || v === P.fieldValue(card, c.fieldId)) return;
+    var key = card.id + ':' + v;
+    if (settingField[key]) return;
+    settingField[key] = true;
+    fieldQueue = fieldQueue.then(function () {
+      return EpicAuth.isAuthorized(t);
+    }).then(function (ok) {
+      return ok ? P.setValue(t, card.id, c.fieldId, v) : null;
+    }).catch(function () { /* next render tries again */ }).then(function () {
+      setTimeout(function () { delete settingField[key]; }, 10000);
+      return wait(150);
+    });
+  }
+
   function autoOpen(t) {
     if (autoTried) return;
     autoTried = true;
@@ -166,11 +195,14 @@
     'card-badges': function (t) {
       return spCfg(t).then(function (c) {
         if (!c.on) return [];
-        return t.card('id', 'name', 'idList', 'customFieldItems').then(function (card) {
+        return t.card('id', 'name', 'idList', 'customFieldItems', 'badges').then(function (card) {
           maybeMove(t, card, c);
-          var v = P.cardPoints(card, c.fieldId);
-          if (v != null) return [{ text: P.fmt(v), icon: BOLT, color: 'blue' }];
-          return card.idList === c.todoListId ? [{ text: '?', icon: BOLT, color: 'yellow' }] : [];
+          return itemsValue(t, card).then(function (items) {
+            maybeSetField(t, card, c, items);
+            var v = items !== undefined ? items : P.cardPoints(card, c.fieldId);
+            if (v != null) return [{ text: P.fmt(v), icon: BOLT, color: 'blue' }];
+            return card.idList === c.todoListId ? [{ text: '?', icon: BOLT, color: 'yellow' }] : [];
+          });
         });
       });
     },
@@ -178,25 +210,44 @@
     'card-detail-badges': function (t) {
       return spCfg(t).then(function (c) {
         if (!c.on) return [];
-        return t.card('name', 'customFieldItems').then(function (card) {
-          var v = P.cardPoints(card, c.fieldId);
-          return [{
-            title: 'Story points',
-            text: v == null ? 'Add' : P.fmt(v),
-            color: v == null ? null : 'blue',
-            callback: function (tt) { return tt.popup({ title: 'Story points', url: './spedit.html', height: 170 }); },
-          }];
+        return t.card('name', 'customFieldItems', 'badges').then(function (card) {
+          return itemsValue(t, card).then(function (items) {
+            // Estimated item by item: the badge shows the sum; the popup says where to set the points.
+            var byItems = items !== undefined;
+            var v = byItems ? items : P.cardPoints(card, c.fieldId);
+            return [{
+              title: 'Story points',
+              text: v == null ? (byItems ? '?' : 'Add') : P.fmt(v),
+              color: v == null ? null : 'blue',
+              callback: function (tt) {
+                return tt.popup({ title: 'Story points', url: './spedit.html', args: { items: byItems ? 1 : 0 }, height: byItems ? 110 : 170 });
+              },
+            }];
+          });
         });
       });
     },
 
 
-    // "TASKS" section on the card back — only on cards that have checklists.
+    // A section on the back of cards that have checklists:
+    // - "STORY POINTS" (a scale under every item) on a person's checklist card, on a card in the TO DO list,
+    //   and on any card already estimated item by item — when story points are on;
+    // - "TASKS" (priorities, ＋ TO DO, ＋ My cards) on every other card, i.e. on epics.
     'card-back-section': function (t) {
       lastT = t;
-      return t.card('badges').then(function (card) {
-        var b = (card && card.badges) || {};
+      return Promise.all([
+        t.card('idList', 'badges'),
+        t.get('card', 'shared', 'kid'),
+        t.get('card', 'shared', 'pts'),
+        spCfg(t),
+      ]).then(function (r) {
+        var card = r[0] || {}, b = card.badges || {}, kid = r[1], pts = r[2], c = r[3] || {};
         if (!b.checkItems) return null;
+        var estimated = !!kid || card.idList === c.todoListId || !!(pts && Object.keys(pts).length);
+        if (estimated && c.on) {
+          return { title: 'STORY POINTS', icon: BOLT, content: { type: 'iframe', url: t.signUrl('./cardpoints.html'), height: 160 } };
+        }
+        if (kid) return null;  // a person's checklist card is not an epic: no TO DO cards from it
         return {
           title: 'TASKS',
           icon: ICON,

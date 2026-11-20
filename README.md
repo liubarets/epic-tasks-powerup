@@ -9,6 +9,9 @@ It adds a **"TASKS"** section to the back of an epic card:
 - "＋ Add all to TO DO" in the TASKS header: pick a checklist or "All tasks" and create the missing TO DO cards for the open items in one click.
 - After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. Clicking the chip opens the card.
 - "＋ Assign to me": take an item you are not mentioned in.
+- **"＋ My cards (n) ▾"** in a checklist header, for the person who clicks: their open items of that checklist that have no card yet. Two choices:
+  - **One card with a checklist**: a card "Epic / Checklist" in TO DO with that person as its member and a checklist of just their items (priority emoji and due dates kept, no @mentions). If they already have such a card for this checklist, the items are added to it.
+  - **A card for each item**: separate cards, as the chips do.
 - "Only mine" and "Hide completed" filters, open P1 counter.
 
 And **story points** for the board (turned on per board in settings):
@@ -18,6 +21,7 @@ And **story points** for the board (turned on per board in settings):
 - The **SP** button in the board header (the Teamload icon: a white ⚡ on blue) opens a **panel at the bottom of the board**: the TO DO list, the picked person and their points ("Dmytro Voloshyn · 14 points · 5 cards"). The panel updates by itself while you work — when someone changes points, members or moves cards — and stays open (it reopens on its own the next time you open the board) until you close it with ×. A click on the person opens a list like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them (then the panel shows the total for everyone). The picked person is personal: everyone picks their own.
 - **Estimating without opening cards:** the panel shows "3 unestimated" (or "All estimated"). A click opens a big window with the TO DO cards of the picked person, one row each with 0.5, 1, 2, 3, 5, 8, 13, 21. One click saves the value; cards estimated there stay listed with a ✓ until the window is closed. Tabs: "No estimate" and "All" (to change a value). The person can be changed in the window too. Setting values needs Teamload to be connected.
 - On the card back, the "Story points" badge opens quick values: 0.5, 1, 2, 3, 5, 8, 13, 21, No estimate.
+- **A card with a checklist is estimated item by item** (any card in TO DO, including people's checklist cards): a **STORY POINTS** section on its back has a small scale under every open item, and the card's points are the sum of its open items. Ticking an item takes its points out of the card's points at once. A click on the value already set clears it. In the Estimate window such a card is one row per open item.
 
 Installed **once per Workspace**. Nobody on the team needs a browser extension.
 
@@ -35,6 +39,10 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 | "Add all to TO DO" | The button sits in the TASKS header. Trello draws it, so it can't show a counter. A click opens a menu with the checklists that have something to add and how many cards each will create, plus "All tasks" (every checklist at once) when more than one does. One card per open item × assignee that doesn't have a card yet; items without assignees and people who are not board members are skipped. The cards are created in the background while the board is open: the menu shows the progress ("Adding TO DO cards… 2/5"), you can close it at any time, reopening it shows the progress again, and Trello shows a notice when all cards are created. When there is nothing to add, the menu says so. |
 | Story points | The Trello custom field "Story points" (number), created from the settings with one click and hidden from the card front (the Power-Up's badge shows the number instead). A card with several members counts fully for each of them; the TO DO total counts every card once. A card whose title still has `[n]` counts too. |
 | Moving `[n]` / `(n)` from titles | Optional, per board ("Move [n] or (n) from card titles into the field automatically"). The value is written to the field first, then the title is cleaned, so nothing is lost if renaming fails. It runs in the browser of anyone who connected Teamload while the board is open, usually within a second; "Move now" in the settings does all cards at once. Only 1–3 digits count (`[2025]` is not points); in round and curly brackets at most one digit after the point, so a date like `(24.11)` is not taken for points. |
+| Checklist card | Name `Epic name / Checklist name`, the person as its member, `[Epic](link) / Checklist` as description, link to the epic attached, one checklist named like the epic's. The card knows its epic (Power-Up data `kid` on the card) and gets no TASKS section. The epic remembers which items are in whose card (Power-Up data `groups`: checklist × person → card and its items). An item × person is in a separate card **or** in a checklist card, never both: the chip shows where (`☰ TO DO`, `☰ ✓` once ticked there). |
+| Keeping epic and checklist cards in step | When someone opens the epic: a new item for a person who has a checklist card for its checklist is added to that card (unless the card is in a Done list, archived, or the person left it); name, priority and due date are copied from the epic into the cards (edits made in the cards are not copied back); ticks go both ways and the latest change wins — ticked in the card → ticked in the epic once every assignee is done, unticked in the card → reopened in the epic, ticked or unticked by hand in the epic → the same in people's cards. Cards are never moved: people move them. |
+| Item points | Power-Up data `pts` on the card (last 8 characters of the item id → points). `[n]` or `(n)` typed into an item moves there (with "Move [n]…" on), and `[n]` in an epic item becomes the starting points of that item in people's checklist cards. The card's "Story points" field is the sum of open items; it is updated by the STORY POINTS section, by the Estimate window, and by the card badges while anyone who connected Teamload has the board open — so ticking an item updates the field and the SP panel without opening the card. A card whose items have no points keeps its own value. |
+| Data limit | Trello keeps at most 4096 characters of Power-Up data per card. The epic's `links` and `groups` fit about 100 item × person pairs; past that Teamload refuses the change with a clear message instead of failing half-way. |
 | Auto-complete | When every assignee of an item has a TO DO card and all of them are in a "Done" list, the item in the epic is ticked. If one of those cards is later moved out of Done (e.g. back to In progress), the item is unticked again; the Power-Up checks this against Trello's activity history, so it also catches moves made while nobody had the epic open. An item you tick by hand while a card is still open (including after a card was moved back) is left alone. Only moving a card to Done completes it: a card archived from TO DO / In progress counts as cancelled (the item stays open and the chip shows "＋ TO DO" again), while a card archived from Done stays done. This happens when someone opens the epic. Can be turned off in settings. |
 
 ---
@@ -104,6 +112,9 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 - Trello mobile apps may not show custom Power-Up sections. Emoji priorities and TO DO cards are visible there as regular Trello data.
 - Assignees are taken from `@username` in the item text. If the person is not a board member, their chip is grey and inactive.
 - After an update, GitHub Pages may serve the old version from cache for up to 10 minutes.
+- Trello doesn't let a Power-Up draw inside its own checklist, so the story point scales live in a STORY POINTS section under it.
+- The panel's "N unestimated" counts cards whose field is empty. A card estimated by items counts as unestimated only while none of its open items has points; the Estimate window lists every unestimated item.
+- Removing an item from your checklist card by hand doesn't take you off it in the epic: the item is added again the next time someone opens the epic. Change the epic instead.
 - Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the panel at the bottom of the board and the SP button sits among the other header buttons. Card badges always come after Trello's own icons.
 
 ## Security
@@ -121,12 +132,13 @@ spbar.html          story points panel at the bottom of the board
 storypoints.html    person list (opened from the panel)
 estimate.html       "Estimate story points" window (opened from the panel)
 spedit.html         quick story point values (card back badge)
+cardpoints.html     "STORY POINTS" section: a scale under every item of a card with a checklist
 addall.html         "Add to TO DO" menu (opened from the TASKS header)
 auth.html           connect window
 auth-redirect.html  OAuth 2.0 callback
 js/config.js        ← the only file you need to edit
 js/core.js          logic (priorities, mentions, sorting)
-js/todo.js          loading the epic, link validity, creating TO DO cards
+js/todo.js          loading the epic, link validity, creating TO DO cards and checklist cards, epic ↔ card sync
 js/auth.js          authorization + REST
 js/section.js       section UI
 js/client.js        connector + "Add all to TO DO" header button (runs the job in the background)
@@ -137,6 +149,7 @@ js/spbar.js         story points panel (live)
 js/storypoints.js   person list
 js/estimate.js      "Estimate story points" window
 js/spedit.js        quick values popup
+js/cardpoints.js    STORY POINTS section (item points, the card's sum)
 css/style.css
 img/icon-gray.svg, img/teamload-icon.svg/.png (app icon and SP button), img/bolt.svg
 test/               tests (not deployed)
@@ -148,4 +161,5 @@ test/               tests (not deployed)
 node --test test/core.test.js test/points.test.js   # logic
 python3 test/run_ui.py            # TASKS section UI against a mocked Trello (needs playwright + Chrome)
 python3 test/run_sp.py            # story points UI against a mocked Trello
+python3 test/run_kid.py           # "＋ My cards", checklist cards, epic ↔ card sync, points per checklist item
 ```

@@ -84,6 +84,55 @@
 
   function cardsWord(n) { return n + (n === 1 ? ' card' : ' cards'); }
 
+  // ---- Points of checklist items ----
+  // A card with a checklist is estimated item by item: Teamload data "pts" on that card holds
+  // { last 8 characters of the item id: n }. The card's "Story points" field is the sum of its open items.
+  var ITEM_KEY = 8;
+  function itemKey(itemId) { return String(itemId).slice(-ITEM_KEY); }
+  function has(o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); }
+
+  // An item's points: the stored value, else "[n]" / "(n)" still in its text.
+  function itemPoints(item, pts) {
+    var k = itemKey(item.id);
+    if (has(pts, k) && pts[k] != null && !isNaN(parseFloat(pts[k]))) return parseFloat(pts[k]);
+    return parse(item.name);
+  }
+
+  function allItems(card) {
+    var out = [];
+    (card && card.checklists || []).forEach(function (cl) { (cl.checkItems || []).forEach(function (it) { out.push(it); }); });
+    return out;
+  }
+
+  // Is the card estimated item by item? Yes once any of its items has points (stored or "[n]" in the text).
+  function itemMode(card, pts) {
+    return allItems(card).some(function (it) { return itemPoints(it, pts) != null; });
+  }
+
+  // The card's "Story points" from its items: the sum of open items.
+  // Not estimated by items → undefined (the card keeps its own value); nothing open → 0;
+  // open items but none of them estimated → null (the card counts as unestimated).
+  function checklistField(card, pts) {
+    if (!itemMode(card, pts)) return undefined;
+    var open = allItems(card).filter(function (it) { return it.state !== 'complete'; });
+    if (!open.length) return 0;
+    var sum = 0, any = false;
+    open.forEach(function (it) {
+      var v = itemPoints(it, pts);
+      if (v != null) { sum += v; any = true; }
+    });
+    return any ? Math.round(sum * 100) / 100 : null;
+  }
+
+  // Drops points of items that are no longer on the card.
+  function prunePoints(pts, card) {
+    var alive = {};
+    allItems(card).forEach(function (it) { alive[itemKey(it.id)] = 1; });
+    var out = {};
+    Object.keys(pts || {}).forEach(function (k) { if (alive[k] && pts[k] != null) out[k] = pts[k]; });
+    return out;
+  }
+
   // ---- REST (needs the member's token) ----
   function api(t, method, path, params, body) { return root.EpicAuth.request(t, method, path, params, body); }
 
@@ -124,6 +173,12 @@
     cardPoints: cardPoints,
     summarize: summarize,
     cardsWord: cardsWord,
+    itemKey: itemKey,
+    itemPoints: itemPoints,
+    allItems: allItems,
+    itemMode: itemMode,
+    checklistField: checklistField,
+    prunePoints: prunePoints,
     setValue: setValue,
     boardFields: boardFields,
     createField: createField,
