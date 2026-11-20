@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <title>v4 · 15 карток у великому вікні</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>body { margin: 0; } button:focus-visible { outline: 2px solid #0c66e4; outline-offset: 2px; }</style>
+</helmet>
+<div style="width:1480px;height:900px;display:flex;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans',Ubuntu,'Helvetica Neue',sans-serif;background:#fff;overflow:hidden">
+  <div style="width:1100px;flex:0 0 1100px;height:900px;position:relative;display:flex;flex-direction:column;background:linear-gradient(160deg,#1d6fd8 0%,#2a93d6 55%,#37b8c9 100%);overflow:hidden">
+    <div style="height:44px;flex:0 0 44px;background:#1d2125;display:flex;align-items:center;gap:14px;padding:0 12px;color:#b6c2cf;font-size:14px">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><g fill="#9fadbc"><rect x="2" y="2" width="4" height="4" rx="1"/><rect x="8" y="2" width="4" height="4" rx="1"/><rect x="14" y="2" width="4" height="4" rx="1"/><rect x="2" y="8" width="4" height="4" rx="1"/><rect x="8" y="8" width="4" height="4" rx="1"/><rect x="14" y="8" width="4" height="4" rx="1"/><rect x="2" y="14" width="4" height="4" rx="1"/><rect x="8" y="14" width="4" height="4" rx="1"/><rect x="14" y="14" width="4" height="4" rx="1"/></g></svg>
+      <span style="font-weight:600;color:#dee4ea">Trello</span>
+      <div style="flex:1"></div>
+      <div style="width:420px;height:30px;box-sizing:border-box;border-radius:6px;border:1px solid #738496;display:flex;align-items:center;gap:8px;padding:0 10px;color:#9fadbc"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="none" stroke="#9fadbc" stroke-width="2"/><path d="M16 16l4 4" stroke="#9fadbc" stroke-width="2" stroke-linecap="round"/></svg>Search</div>
+      <div style="flex:1"></div>
+      <span style="width:26px;height:26px;border-radius:50%;background:#0c66e4;color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px">OL</span>
+    </div>
+    <div style="height:52px;flex:0 0 52px;background:rgba(0,0,0,.24);display:flex;align-items:center;gap:18px;padding:0 12px 0 16px;color:#fff">
+      <span style="font-size:18px;font-weight:700">Test board</span>
+      <div style="flex:1"></div>
+      <span style="width:28px;height:28px;border-radius:50%;background:#0c66e4;color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:0 0 28px">OL</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" role="img" aria-label="Story points"><rect width="24" height="24" rx="5" fill="#0C66E4"/><path d="M18.5 7.2V4.5h-13l6.8 7.5-6.8 7.5h13v-2.7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v5M16 3v5M6 8h12v4a6 6 0 0 1-12 0zM12 18v3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4.5 14H11l-1 8 9-12h-6.5z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      <button type="button" style="height:32px;border:0;border-radius:4px;background:#dcdfe4;color:#172b4d;font-family:inherit;font-size:14px;font-weight:600;padding:0 12px;cursor:pointer">Share</button>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 12px 72px;flex:1 1 auto;min-height:0;overflow:hidden">
+      <sc-for list="{{lists}}" as="l" hint-placeholder-count="4">
+        <div style="width:252px;flex:0 0 252px;max-height:100%;box-sizing:border-box;background:#f1f2f4;border-radius:12px;display:flex;flex-direction:column;box-shadow:0 1px 1px rgba(9,30,66,.25)">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px 6px 14px">
+            <span style="flex:1 1 auto;font-size:14px;font-weight:600;color:#172b4d;line-height:20px">{{l.title}}</span>
+            <span style="font-size:13px;color:#626f86">{{l.count}}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:2px 8px 4px;overflow:hidden;flex:1 1 auto;min-height:0">
+            <sc-for list="{{l.cards}}" as="cd" hint-placeholder-count="4">
+              <div style="background:#fff;border-radius:8px;box-shadow:0 1px 1px rgba(9,30,66,.25),0 0 1px rgba(9,30,66,.31);padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex:0 0 auto;{{cd.ring}}">
+                <div style="font-size:14px;line-height:20px;color:#172b4d">{{cd.title}}</div>
+                <div style="display:flex;align-items:center;gap:8px;min-height:24px">
+                  <sc-if value="{{cd.desc}}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" stroke="#44546f" stroke-width="2" stroke-linecap="round"/></svg></span></sc-if>
+                  <sc-if value="{{cd.hasSp}}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 6px;border-radius:4px;font-size:12px;font-weight:600;line-height:20px;{{cd.spCss}}"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2L4.5 14h6.5l-1 8 9-12h-6.5z" fill="currentColor"/></svg>{{cd.spTxt}}</span></sc-if>
+                  <span style="flex:1 1 auto"></span>
+                  <span style="width:24px;height:24px;border-radius:50%;background:{{cd.c}};color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">{{cd.ini}}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:6px 12px 10px;color:#44546f;font-size:14px;display:flex;align-items:center;gap:8px;flex:0 0 auto"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="#44546f" stroke-width="2" stroke-linecap="round"/></svg>Add a card</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex:0 0 160px;height:160px;box-sizing:border-box;padding:0 12px 80px;position:relative">
+      <div style="height:80px;border-radius:8px;background:#fff;box-shadow:0 1px 3px rgba(9,30,66,.25);overflow:hidden;display:flex;flex-direction:column">
+        <div style="height:32px;flex:0 0 32px;background:#f1f2f4;display:flex;align-items:center;justify-content:center;position:relative;font-size:12px;font-weight:700;color:#44546f">Story points<span style="position:absolute;right:10px;top:8px;display:inline-flex"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="#44546f" stroke-width="2" stroke-linecap="round"/></svg></span></div>
+        <div style="height:48px;display:flex;align-items:center;gap:12px;padding:0 16px;white-space:nowrap">
+          <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;background:#f1f2f4;color:#44546f;font-size:12px;font-weight:600">TO DO</span>
+          <button type="button" aria-haspopup="listbox" style="height:36px;border:0;border-radius:6px;padding:0 8px 0 6px;display:inline-flex;align-items:center;gap:8px;background:#f1f2f4;font-family:inherit;font-size:14px;font-weight:600;color:#172b4d;cursor:pointer">
+            <span style="width:24px;height:24px;border-radius:50%;background:#c9372c;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">DV</span>Dmytro Voloshyn<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="#44546f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span style="width:1px;height:24px;background:#dcdfe4"></span>
+          <span style="font-size:26px;font-weight:700;line-height:1;color:#0c66e4">{{sumTxt}}</span>
+          <span style="margin-left:-6px;font-size:14px;font-weight:600;color:#172b4d">points</span>
+          <span style="font-size:13px;color:#626f86">{{cardsTxt}}</span>
+          <button type="button" onClick="{{toggle}}" aria-expanded="{{open}}" aria-haspopup="dialog" style="height:28px;border:0;border-radius:6px;padding:0 10px 0 8px;display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;{{unestCss}}"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2L4.5 14h6.5l-1 8 9-12h-6.5z" fill="currentColor"/></svg>{{unestTxt}}</button>
+        </div>
+      </div>
+      <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);height:44px;box-sizing:border-box;padding:0 8px;border-radius:12px;background:#fff;box-shadow:0 4px 12px rgba(9,30,66,.25);display:flex;align-items:center;gap:4px;font-size:14px;color:#172b4d">
+        <span style="padding:0 10px">Inbox</span><span style="padding:0 10px">Planner</span><span style="padding:4px 10px;border-radius:6px;background:#e9f2ff;color:#0c66e4;font-weight:600">Board</span><span style="padding:0 10px">Switch boards</span>
+      </div>
+    </div>
+    <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(9,30,66,.55)"></div>
+      <div role="dialog" aria-label="Estimate story points" style="position:absolute;left:150px;top:56px;width:800px;height:790px;box-sizing:border-box;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(9,30,66,.3);display:flex;flex-direction:column;overflow:hidden;color:#172b4d">
+        <div style="height:48px;flex:0 0 48px;display:flex;align-items:center;gap:8px;padding:0 10px 0 20px;border-bottom:1px solid #f1f2f4">
+          <span style="flex:1 1 auto;font-size:16px;font-weight:600">Estimate story points</span>
+          <button type="button" onClick="{{toggle}}" aria-label="Close" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="#44546f" stroke-width="2" stroke-linecap="round"/></svg></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;flex:0 0 auto">
+          <button type="button" aria-haspopup="listbox" style="height:34px;border:0;border-radius:6px;padding:0 8px 0 6px;display:inline-flex;align-items:center;gap:8px;background:#f1f2f4;font-family:inherit;font-size:14px;font-weight:600;color:#172b4d;cursor:pointer"><span style="width:22px;height:22px;border-radius:50%;background:#c9372c;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">DV</span>Dmytro Voloshyn · TO DO<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="#44546f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <div role="tablist" aria-label="Cards" style="display:flex;gap:2px;padding:2px;border-radius:8px;background:#f1f2f4;flex:0 0 auto;width:250px">
+          <button type="button" role="tab" aria-selected="{{tabNoneSel}}" onClick="{{tabNone}}" style="flex:1 1 0;height:30px;border:0;border-radius:6px;font-family:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;{{tabNoneCss}}">No estimate<span style="min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;font-size:11px;line-height:18px;{{noneBadgeCss}}">{{noneCount}}</span></button>
+          <button type="button" role="tab" aria-selected="{{tabAllSel}}" onClick="{{tabAll}}" style="flex:1 1 0;height:30px;border:0;border-radius:6px;font-family:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;{{tabAllCss}}">All<span style="min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;font-size:11px;line-height:18px;background:#dcdfe4;color:#44546f">{{allCount}}</span></button>
+        </div>
+          <span style="flex:1 1 auto"></span>
+          <div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto;width:150px"><span style="font-size:12px;color:#44546f">{{progressTxt}}</span><div style="height:4px;border-radius:2px;background:#f1f2f4;overflow:hidden"><div style="height:4px;border-radius:2px;background:#1f845a;{{progressCss}}"></div></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:0 20px 6px;font-size:12px;font-weight:600;color:#626f86;flex:0 0 auto"><span style="width:16px;flex:0 0 16px"></span><span style="flex:1 1 auto">Card</span><span style="width:340px;flex:0 0 340px;text-align:center">Story points</span></div>
+        <div style="display:flex;flex-direction:column;overflow-y:auto;min-height:0;flex:1 1 auto">
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="15">
+            <div style="display:flex;align-items:center;gap:12px;height:40px;padding:0 20px;border-top:1px solid #f1f2f4;flex:0 0 40px">
+              <span style="width:16px;flex:0 0 16px;display:inline-flex;align-items:center;justify-content:center"><sc-if value="{{r.saved}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#216e4e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if></span>
+              <button type="button" onClick="{{r.open}}" title="{{r.title}}" style="flex:1 1 auto;min-width:0;border:0;padding:0;background:transparent;text-align:left;font-family:inherit;font-size:14px;line-height:20px;color:#172b4d;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.title}}</button>
+              <div role="group" aria-label="{{r.groupLabel}}" style="width:340px;flex:0 0 340px;display:flex;gap:4px">
+                <sc-for list="{{r.chips}}" as="ch" hint-placeholder-count="8">
+                  <button type="button" onClick="{{ch.pick}}" aria-pressed="{{ch.pressed}}" style="flex:1 1 0;min-width:0;height:28px;border:0;border-radius:6px;padding:0;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;{{ch.css}}">{{ch.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{noRows}}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 8px;text-align:center;font-size:13px;color:#44546f"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#dcfff1"/><path d="M8 12.5l2.8 2.7L16.5 9.5" fill="none" stroke="#216e4e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>All cards in TO DO have an estimate</div>
+          </sc-if>
+        </div>
+        <div style="padding:10px 20px;border-top:1px solid #f1f2f4;font-size:12px;color:#626f86;flex:0 0 auto">Cards are in the same order as in the TO DO list. Click a card name to open it.</div>
+      </div>
+    </sc-if>
+  </div>
+  <div style="width:380px;flex:0 0 380px;height:900px;box-sizing:border-box;background:#fff;border-left:1px solid #dcdfe4;padding:32px 28px 28px;display:flex;flex-direction:column;gap:16px;color:#172b4d;font-size:14px;line-height:1.5;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="width:44px;height:44px;border-radius:12px;background:#0c66e4;color:#fff;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 44px">2</span>
+      <div style="display:flex;flex-direction:column"><span style="font-size:20px;font-weight:700;line-height:1.25">15 карток у великому вікні</span><span style="color:#626f86;font-size:13px">Велике вікно Trello по центру екрана</span></div>
+    </div>
+    <span style="align-self:flex-start;font-size:12px;font-weight:700;border-radius:12px;padding:3px 10px;background:#dcfff1;color:#216e4e">Варіант 2 · для 10+ карток</span>
+    <p style="margin:0">Те саме, але у великому вікні Trello: одна картка — один рядок, кнопки балів справа. 15 карток видно без прокрутки на звичайному ноутбуці.</p>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:#626f86">ЩО ЗМІНИЛОСЬ</span><div style="display:flex;gap:10px"><span style="flex:0 0 20px;display:flex;justify-content:center;padding-top:8px"><span style="width:6px;height:6px;border-radius:50%;background:#0c66e4"></span></span><span>Людину можна змінити прямо у вікні.</span></div><div style="display:flex;gap:10px"><span style="flex:0 0 20px;display:flex;justify-content:center;padding-top:8px"><span style="width:6px;height:6px;border-radius:50%;background:#0c66e4"></span></span><span>Прогрес «3 of 15 estimated» і вкладки No estimate / All угорі.</span></div><div style="display:flex;gap:10px"><span style="flex:0 0 20px;display:flex;justify-content:center;padding-top:8px"><span style="width:6px;height:6px;border-radius:50%;background:#0c66e4"></span></span><span>Порядок карток такий самий, як у списку TO DO.</span></div></div><div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;font-weight:700;letter-spacing:.06em;color:#626f86">ПЛЮСИ І МІНУСИ</span><div style="display:flex;gap:10px"><span style="flex:0 0 20px;height:20px;border-radius:50%;background:#dcfff1;color:#216e4e;font-weight:700;font-size:14px;line-height:20px;text-align:center;margin-top:1px">+</span><span>Видно всі картки одразу, назви майже не обрізаються.</span></div><div style="display:flex;gap:10px"><span style="flex:0 0 20px;height:20px;border-radius:50%;background:#dcfff1;color:#216e4e;font-weight:700;font-size:14px;line-height:20px;text-align:center;margin-top:1px">+</span><span>Зручно оцінювати пачкою раз на тиждень.</span></div><div style="display:flex;gap:10px"><span style="flex:0 0 20px;height:20px;border-radius:50%;background:#ffeceb;color:#ae2e24;font-weight:700;font-size:14px;line-height:20px;text-align:center;margin-top:1px">–</span><span>Поки вікно відкрите, дошку не видно (бейджі оновляться після закриття).</span></div></div>
+    <div style="flex:1 1 auto"></div>
+    <div style="border-radius:8px;background:#f7f8f9;padding:12px 14px;font-size:13px;color:#44546f">Спробуйте: клікайте по числах підряд. Закрийте вікно хрестиком і відкрийте знову кнопкою в панелі внизу.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1480,"height":900}}'>
+class Component extends DCLogic {
+
+  base() {
+    if (this._b) return this._b;
+    var P = {
+      DV: { ini: 'DV', c: '#c9372c' }, AK: { ini: 'AK', c: '#1f845a' }, MS: { ini: 'MS', c: '#6e5dc6' },
+      IR: { ini: 'IR', c: '#a54800' }, OL: { ini: 'OL', c: '#0c66e4' }
+    };
+    var raw = [
+      ['Landing page hero refresh', 'DV', 3, true], ['Promo email template', 'AK', 2, false], ['Video for entry screens', 'DV', null, true],
+      ['Push notification copy for the loyalty launch', 'DV', null, false], ['CRM segment rebuild', 'MS', null, true], ['Banner set 300x250', 'DV', 5, false],
+      ['Store locator copy', 'DV', null, true], ['Loyalty FAQ page', 'IR', 1, true], ['Retail POS mock-up', 'DV', null, false],
+      ['App store screenshots', 'DV', null, false], ['Release notes', 'DV', 2, true], ['Influencer brief', 'DV', null, false],
+      ['Event landing page', 'DV', null, true], ['Chatbot scripts for the support bot', 'DV', null, false], ['Price list update', 'DV', null, false],
+      ['Onboarding emails', 'DV', null, true], ['Referral page copy', 'DV', 8, false], ['Brand guidelines PDF', 'DV', null, false],
+      ['Stories templates', 'DV', null, false], ['Web form validation', 'DV', null, true], ['Weekly report template', 'DV', null, false],
+      ['SEO audit', 'DV', null, true]
+    ];
+    var todo = raw.map(function (r, i) { return { id: 't' + i, title: r[0], who: r[1], pts: r[2], desc: r[3] }; });
+    var others = [
+      { title: 'IN PROGRESS', cards: [{ title: 'Store locator fix', who: 'AK', pts: 3, desc: true }, { title: 'Social post pack', who: 'DV', pts: 2, desc: false }, { title: 'Analytics tags QA', who: 'MS', pts: 1, desc: false }] },
+      { title: 'REVIEW', cards: [{ title: 'Survey form', who: 'IR', pts: 2, desc: true }, { title: 'UTM naming sheet', who: 'OL', pts: 0.5, desc: false }] },
+      { title: 'DONE', cards: [{ title: 'Newsletter draft', who: 'DV', pts: 3, desc: false }, { title: 'Media plan Q1', who: 'AK', pts: 5, desc: true }, { title: 'Partner deck', who: 'OL', pts: 8, desc: false }] }
+    ];
+    this._b = { P: P, todo: todo, others: others, values: [0.5, 1, 2, 3, 5, 8, 13, 21] };
+    return this._b;
+  }
+
+  renderVals() {
+    var B = this.base(), self = this, st = this.state || {};
+    var est = st.est || {}, keep = st.keep || {};
+    var open = st.open === undefined ? true : st.open;
+    function fmt(x) { return String(Math.round(x * 100) / 100); }
+    function val(c) { return Object.prototype.hasOwnProperty.call(est, c.id) ? est[c.id] : c.pts; }
+    function badge(v, inTodo) {
+      return { hasSp: v != null || inTodo, spTxt: v == null ? '?' : fmt(v),
+        spCss: v == null ? 'background:#fff7d6;color:#7f5f01' : 'background:#e9f2ff;color:#0055cc' };
+    }
+
+    var mine = B.todo.filter(function (c) { return c.who === 'DV'; });
+    var sum = 0, none = 0, base = 0, done = 0;
+    mine.forEach(function (c) {
+      var v = val(c);
+      if (v == null) none++; else sum += v;
+      if (c.pts == null) { base++; if (v != null) done++; }
+    });
+    var tab = st.tab || (none > 0 ? 'none' : 'all');
+
+    var todoCards = B.todo.map(function (c) {
+      var b = badge(val(c), true);
+      return { title: c.title, desc: c.desc, hasSp: b.hasSp, spTxt: b.spTxt, spCss: b.spCss, ini: B.P[c.who].ini, c: B.P[c.who].c,
+        ring: keep[c.id] ? 'box-shadow:0 0 0 2px #0c66e4' : '' };
+    });
+    var lists = [{ title: 'TO DO', count: String(B.todo.length), cards: todoCards }].concat(B.others.map(function (l) {
+      return { title: l.title, count: String(l.cards.length), cards: l.cards.map(function (c) {
+        var b = badge(c.pts, false);
+        return { title: c.title, desc: c.desc, hasSp: b.hasSp, spTxt: b.spTxt, spCss: b.spCss, ini: B.P[c.who].ini, c: B.P[c.who].c, ring: '' };
+      }) };
+    }));
+
+    var shown = tab === 'none' ? mine.filter(function (c) { return val(c) == null || keep[c.id]; }) : mine;
+    var rows = shown.map(function (c) {
+      var cur = val(c);
+      return {
+        title: c.title,
+        groupLabel: 'Story points for ' + c.title,
+        saved: !!keep[c.id] && cur != null,
+        open: function () {},
+        chips: B.values.map(function (v) {
+          var on = cur === v;
+          return { label: fmt(v), pressed: String(on),
+            css: on ? 'background:#0c66e4;color:#fff' : 'background:#f1f2f4;color:#172b4d',
+            pick: function () {
+              var e2 = Object.assign({}, est); e2[c.id] = v;
+              var k2 = Object.assign({}, keep); k2[c.id] = true;
+              self.setState({ est: e2, keep: k2, tab: tab });
+            } };
+        })
+      };
+    });
+
+    var activeTab = 'background:#fff;color:#172b4d;box-shadow:0 1px 2px rgba(9,30,66,.25)';
+    var idleTab = 'background:transparent;color:#44546f;box-shadow:none';
+    return {
+      lists: lists,
+      sumTxt: fmt(sum),
+      cardsTxt: mine.length + ' cards',
+      unestTxt: none > 0 ? none + ' unestimated' : 'All estimated',
+      unestCss: (none > 0 ? 'background:#fff7d6;color:#7f5f01' : 'background:#dcfff1;color:#216e4e') + (open ? ';box-shadow:inset 0 0 0 2px #0c66e4' : ';box-shadow:none'),
+      open: open,
+      toggle: function () { self.setState({ open: !open, keep: {}, tab: null }); },
+      tabNone: function () { self.setState({ tab: 'none' }); },
+      tabAll: function () { self.setState({ tab: 'all' }); },
+      tabNoneSel: String(tab === 'none'), tabAllSel: String(tab === 'all'),
+      tabNoneCss: tab === 'none' ? activeTab : idleTab, tabAllCss: tab === 'all' ? activeTab : idleTab,
+      noneCount: String(none), allCount: String(mine.length),
+      noneBadgeCss: none > 0 ? 'background:#f5cd47;color:#533f04' : 'background:#dcdfe4;color:#44546f',
+      progressTxt: done + ' of ' + base + ' estimated',
+      progressCss: 'width:' + (base ? Math.round(done * 100 / base) : 100) + '%',
+      rows: rows, noRows: rows.length === 0
+    };
+  }
+
+}
+</script>
+</body>
+</html>
