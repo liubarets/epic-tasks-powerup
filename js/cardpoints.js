@@ -22,6 +22,12 @@
 
   function byPos(a, b) { return (a.pos || 0) - (b.pos || 0); }
 
+  function checklistsOf(cardId) {
+    return EpicAuth.request(t, 'GET', '/cards/' + cardId + '/checklists', {
+      checkItems: 'all', checkItem_fields: 'name,state,pos', fields: 'name,pos',
+    });
+  }
+
   function resize() { return Promise.resolve(t.sizeTo(document.body)).catch(function () {}); }
 
   function load() {
@@ -32,6 +38,10 @@
       t.get('card', 'shared', 'pts', {}),
       EpicAuth.isAuthorized(t),
     ]).then(function (r) {
+      // The checklists come from Trello's REST API: t.card('checklists') returns none on a real board.
+      if (!r[4]) return r;
+      return checklistsOf(r[0].id).then(function (lists) { r[0].checklists = lists; return r; }, function () { return r; });
+    }).then(function (r) {
       var card = r[0] || {}, cfg = r[1] || {};
       (card.checklists || []).sort(byPos);
       (card.checklists || []).forEach(function (cl) { (cl.checkItems || []).sort(byPos); });

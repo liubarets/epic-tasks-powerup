@@ -218,7 +218,8 @@
   function scopeOf(scope) { return scope === 'card' && S.card.id !== 'card00000000000000000epic' ? S.card.id : scope; }
   function pick(obj) { return Promise.resolve(clone(obj)); }
   var t = {
-    card: function () { var c = clone(S.card); if (S.card.checklists) c.badges = cardBadges(S.card); return Promise.resolve(c); },
+    // like the real board: t.card('checklists') gives no checklists, they come from the REST API
+    card: function () { var c = clone(S.card); if (S.card.checklists) c.badges = cardBadges(S.card); delete c.checklists; return Promise.resolve(c); },
     board: function () { return pick({ id: S.board.id, members: S.members || members, labels: S.board.labels, customFields: S.board.customFields }); },
     cards: function () {
       var ms = S.members || members;

@@ -151,12 +151,29 @@
   // added or removed), so the field follows at once while anyone who connected Teamload has the board open.
   var fieldQueue = Promise.resolve();
   var settingField = {};
+  // The card's checklists from Trello's REST API (t.card('checklists') returns none on a real board),
+  // cached for a few seconds per card and state: Trello asks for badges often.
+  var listCache = {};
+  function checklistsOf(t, card) {
+    var b = card.badges || {};
+    var key = card.id + ':' + b.checkItems + ':' + b.checkItemsChecked;
+    var hit = listCache[key];
+    if (hit && Date.now() - hit.at < 5000) return hit.p;
+    var p = EpicAuth.isAuthorized(t).then(function (ok) {
+      if (!ok) return null;
+      return EpicAuth.request(t, 'GET', '/cards/' + card.id + '/checklists', {
+        checkItems: 'all', checkItem_fields: 'name,state,pos', fields: 'name,pos',
+      });
+    });
+    listCache[key] = { at: Date.now(), p: p };
+    return p;
+  }
   function itemsValue(t, card) {
     if (!(card.badges || {}).checkItems) return Promise.resolve(undefined);
     return Promise.resolve(t.get('card', 'shared', 'pts', {})).then(function (pts) {
       if (!pts || !Object.keys(pts).length) return undefined;
-      return t.card('checklists').then(function (c) {
-        return P.checklistField({ checklists: (c && c.checklists) || [] }, pts);
+      return checklistsOf(t, card).then(function (lists) {
+        return lists ? P.checklistField({ checklists: lists }, pts) : undefined;
       });
     }).catch(function () { return undefined; });
   }
@@ -210,7 +227,7 @@
     'card-detail-badges': function (t) {
       return spCfg(t).then(function (c) {
         if (!c.on) return [];
-        return t.card('name', 'customFieldItems', 'badges').then(function (card) {
+        return t.card('id', 'name', 'customFieldItems', 'badges').then(function (card) {
           return itemsValue(t, card).then(function (items) {
             // Estimated item by item: the badge shows the sum; the popup says where to set the points.
             var byItems = items !== undefined;
