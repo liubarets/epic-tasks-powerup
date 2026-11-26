@@ -261,7 +261,7 @@
     'card-back-section': function (t) {
       lastT = t;
       return Promise.all([
-        t.card('idList', 'badges', 'desc'),
+        t.card('idList', 'badges', 'desc', 'customFieldItems'),
         t.get('card', 'shared', 'kid'),
         t.get('card', 'shared', 'pts'),
         spCfg(t),
@@ -273,7 +273,12 @@
         var fromEpic = /^\[[^\]]*\]\(https:\/\/trello\.com\/c\//.test(card.desc || '');
         var estimated = !!kid || fromEpic || (c.todoIds || []).indexOf(card.idList) !== -1 || !!(pts && Object.keys(pts).length);
         if (estimated && c.on) {
-          return { title: 'STORY POINTS', icon: BOLT, content: { type: 'iframe', url: t.signUrl('./cardpoints.html'), height: 160 } };
+          var sec = { title: 'STORY POINTS', icon: BOLT, content: { type: 'iframe', url: t.signUrl('./cardpoints.html'), height: 160 } };
+          // The card's points on the title's line, as Trello's section action on the right. The "Story points" field
+          // holds the sum of the open items (kept by the section itself); Trello gives no checklists here.
+          var v = c.fieldId ? P.cardPoints(card, c.fieldId) : null;
+          if (v != null || (pts && Object.keys(pts).length)) sec.action = { text: '⚡ ' + (v == null ? '?' : P.fmt(v)), callback: function () {} };
+          return sec;
         }
         if (kid || fromEpic) return null;  // a person's checklist card is not an epic: no TO DO cards from it
         return {

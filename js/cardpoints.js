@@ -232,24 +232,26 @@
     }
     var sum = P.checklistField(d.card, d.pts);
     var own = P.fieldValue(d.card, d.field.id);
-    var head = sum === undefined
-      ? (own != null
+    // The sum is shown next to the section's title (Trello's own header, see client.js); here only a hint
+    // while nothing is estimated yet.
+    var head = sum !== undefined ? ''
+      : own != null
         ? '<span class="cp-note">This card has <b>' + P.fmt(own) + '</b> points as a whole. Estimate its items and their sum replaces it.</span>'
-        : '<span class="cp-note">Estimate each item: the card’s points are the sum of its open items.</span>')
-      : '<span class="cp-sum" title="Sum of open items">⚡ ' + (sum == null ? '?' : P.fmt(sum)) + '</span>' +
-        '<span class="cp-note">Card points = sum of open items</span>';
+        : '<span class="cp-note">Estimate each item: the card’s points are the sum of its open items.</span>';
     var lists = d.card.checklists || [];
     var body = lists.map(function (cl) {
       var items = (cl.checkItems || []).map(function (it) {
         var v = P.itemPoints(it, d.pts);
         var st = statusOf(it);
         var dis = ui.authed ? '' : ' disabled';
+        // Name, then points and status on the right; the status buttons get one width (see alignStatus) so the
+        // points stand in one column whatever the status says.
         return '<li class="cp-item' + (st === 'done' ? ' done' : '') + '">' +
-          '<button type="button" class="tsel cp-sp' + (v == null ? ' none' : '') + '" data-action="sp" data-item="' + esc(it.id) + '"' + dis +
-            ' title="Story points">⚡ ' + (v == null ? '?' : P.fmt(v)) + ' ▾</button>' +
           '<span class="cp-name">' + esc(it.name) + '</span>' +
-          '<button type="button" class="tsel cp-st" data-action="st" data-item="' + esc(it.id) + '"' + dis + ' title="Status">' +
-            esc(statusLabel(st)) + ' ▾</button></li>';
+          '<button type="button" class="tsel cp-sp' + (v == null ? ' none' : '') + '" data-action="sp" data-item="' + esc(it.id) + '"' + dis +
+            ' title="Story points">⚡ ' + (v == null ? '?' : P.fmt(v)) + ' <span class="cv">▾</span></button>' +
+          '<button type="button" class="tsel cp-st st-' + st + '" data-action="st" data-item="' + esc(it.id) + '"' + dis + ' title="Status">' +
+            '<span>' + esc(statusLabel(st)) + '</span> <span class="cv">▾</span></button></li>';
       }).join('');
       return (lists.length > 1 ? '<div class="cp-cl">' + esc(cl.name) + '</div>' : '') + '<ul class="cp-list">' + items + '</ul>';
     }).join('');
@@ -262,8 +264,16 @@
     root.innerHTML =
       (ui.authed ? '' : '<div class="notice">Connect Teamload to set points. <button class="link" data-action="auth">Connect</button></div>') +
       (ui.error ? '<div class="error">' + esc(ui.error) + '</div>' : '') + warn +
-      '<div class="cp-head">' + head + '</div>' + body;
+      (head ? '<div class="cp-head">' + head + '</div>' : '') + body;
+    alignStatus();
     return resize();
+  }
+
+  // Every status button as wide as the widest one ("IN PROGRESS" vs "TO DO SP48" vs "DONE").
+  function alignStatus() {
+    var bs = root.querySelectorAll('.cp-st'), w = 0, i;
+    for (i = 0; i < bs.length; i++) { bs[i].style.width = ''; w = Math.max(w, bs[i].getBoundingClientRect().width); }
+    for (i = 0; i < bs.length; i++) bs[i].style.width = Math.ceil(w) + 'px';
   }
 
   root.addEventListener('click', function (e) {
