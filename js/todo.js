@@ -82,6 +82,8 @@
     });
   }
 
+  var recentLinks = {};  // linkKey -> shortLink of separate cards created from this page
+
   function unique(list) { return list.filter(function (v, i, a) { return v && a.indexOf(v) === i; }); }
 
   // Everything needed to render the section or add cards: the epic, its checklists,
@@ -100,6 +102,8 @@
       // The TO DO list never counts as done, even if it was ticked under "Done lists" in older settings.
       cfg.doneListIds = (cfg.doneListIds || []).filter(function (id) { return id !== cfg.todoListId; });
       var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: cfg, links: r[5] || {}, groups: r[6] || {} };
+      // Cards made from this page a moment ago: Trello's Power-Up data can lag right after a write.
+      Object.keys(recentLinks).forEach(function (k) { if (!d.links[k]) d.links[k] = recentLinks[k]; });
       d.field = cfg.sp && cfg.sp.on && P() ? P().findField((r[1] || {}).customFields, cfg) : null;
       d.listName = {};
       d.lists.forEach(function (l) { d.listName[l.id] = l.name; });
@@ -122,7 +126,11 @@
         d.linked = res[1];
         d.kids = res[2];
         d.alive = aliveLinks(d);
-        return d;
+        // Which items of people's checklist cards are IN PROGRESS (Teamload data "st" on each card).
+        var kl = Object.keys(d.kids || {}).filter(function (s) { return d.kids[s]; });
+        return Promise.all(kl.map(function (s) {
+          return Promise.resolve(t.get(d.kids[s].id, 'shared', 'st', {})).then(function (st) { d.kids[s].st = st || {}; }, function () { d.kids[s].st = {}; });
+        })).then(function () { return d; });
       });
     });
   }
@@ -249,6 +257,11 @@
       pos: pos != null ? pos : (d.cfg.position === 'bottom' ? 'bottom' : 'top'),
       urlSource: d.card.url,
     }).then(function (created) {
+      // Known at once, so a next job on this page (or a refresh with lagging data) doesn't add it again.
+      d.linked = d.linked || {};
+      d.linked[created.shortLink] = { id: created.id, shortLink: created.shortLink, name: created.name || '', idList: d.cfg.todoListId,
+        closed: false, idMembers: [memberId] };
+      recentLinks[Core.linkKey(item.id, memberId)] = created.shortLink;
       if (created.badges && created.badges.attachments > 0) return created.shortLink;
       return api(t, 'POST', '/cards/' + created.id + '/attachments', { url: d.card.url, name: d.card.name })
         .catch(function () { /* link back is nice-to-have */ })
@@ -412,24 +425,19 @@
   // Items go one by one, so they keep the epic's order; what was added is recorded even if a later step fails.
   // ---- Status of an item × person, changed from the epic ----
 
-  // The "in progress" list: the board's list between the TO DO list and the first Done list
-  // (preferring one named like "progress" / "doing"); null when the board has none.
-  function progressListId(d) {
-    var ls = d.lists || [], done = d.cfg.doneListIds || [];
-    var ti = -1, di = ls.length;
-    ls.forEach(function (l, i) { if (l.id === d.cfg.todoListId) ti = i; });
-    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
-    var between = ti === -1 ? [] : ls.slice(ti + 1, di).filter(function (l) { return done.indexOf(l.id) === -1; });
-    var named = function (l) { return /progress|doing|в робот|в процес/i.test(l.name || ''); };
-    var pick = between.filter(named)[0] || between[0] || ls.filter(function (l) { return named(l) && l.id !== d.cfg.todoListId && done.indexOf(l.id) === -1; })[0];
-    return pick ? pick.id : null;
-  }
+  // The "in progress" list (see Core.progressListId).
+  function progressListId(d) { return Core.progressListId(d.lists, d.cfg); }
 
-  // 'todo' | 'prog' | 'done' | 'other' for an item × person that has a card.
+  function stKey(itemId) { return String(itemId).slice(-8); }
+
+  // 'todo' | 'prog' | 'done' | 'other' for an item × person that has a card. A separate card: where the card is.
+  // An item in a checklist card has its own status (Core.itemStatus): the card being in progress doesn't make
+  // all its items in progress, and a card in Done makes them all done.
   function statusOf(d, info) {
     if (!info) return null;
     var c = info.card, done = d.cfg.doneListIds || [];
-    if (info.kind === 'kid' ? info.item.state === 'complete' : done.indexOf(c.idList) !== -1) return 'done';
+    if (info.kind === 'kid') return Core.itemStatus(c.idList, info.item, !!(c.st || {})[stKey(info.item.id)], done);
+    if (done.indexOf(c.idList) !== -1) return 'done';
     if (c.idList === d.cfg.todoListId) return 'todo';
     if (c.idList === progressListId(d)) return 'prog';
     return 'other';
@@ -440,27 +448,47 @@
     return api(t, 'PUT', '/cards/' + c.id, { idList: listId, pos: 'top' }).then(function () { c.idList = listId; });
   }
 
+  function kidItems(c) {
+    var all = [];
+    (c.checklists || []).forEach(function (cl) { all = all.concat(cl.checkItems || []); });
+    return all;
+  }
+
+  function saveSt(t, c, st) {
+    var a = Object.keys(c.st || {}).sort().join(), b = Object.keys(st).sort().join();
+    c.st = st;
+    if (a === b) return Promise.resolve();
+    return Promise.resolve(t.set(c.id, 'shared', 'st', st)).catch(function () {});
+  }
+
   // Anyone on the board can change the status from the epic:
   // - a separate card moves to TO DO / the in-progress list / the first Done list;
-  // - an item in a person's checklist card: TO DO / IN PROGRESS untick it (IN PROGRESS also moves the card
-  //   out of TO DO, and both bring a card back from Done); DONE ticks it, and when every item of that card
-  //   is ticked the card moves to Done.
+  // - an item in a person's checklist card gets its own status, the other items keep theirs (Core.statusPlan):
+  //   IN PROGRESS moves the card out of TO DO, DONE ticks the item and the card goes to Done when all are done.
   function setStatus(t, d, itemId, memberId, status) {
     var info = linkInfo(d, itemId, memberId);
     if (!info) return Promise.resolve();
     var done = d.cfg.doneListIds || [], prog = progressListId(d), c = info.card;
-    var target = { todo: d.cfg.todoListId, prog: prog, done: done[0] }[status];
-    if (info.kind === 'card') return moveCard(t, d, c, target);
-    var it = info.item, want = status === 'done' ? 'complete' : 'incomplete';
-    var tick = it.state === want ? Promise.resolve()
-      : api(t, 'PUT', '/cards/' + c.id + '/checkItem/' + it.id, { state: want }).then(function () { it.state = want; });
-    return tick.then(function () {
-      var inDone = done.indexOf(c.idList) !== -1;
-      if (status === 'todo') return inDone ? moveCard(t, d, c, d.cfg.todoListId) : null;
-      if (status === 'prog') return (inDone || c.idList === d.cfg.todoListId) ? moveCard(t, d, c, prog) : null;
-      var all = [];
-      (c.checklists || []).forEach(function (cl) { all = all.concat(cl.checkItems || []); });
-      return all.length && all.every(function (x) { return x.state === 'complete'; }) ? moveCard(t, d, c, done[0]) : null;
+    if (info.kind === 'card') return moveCard(t, d, c, { todo: d.cfg.todoListId, prog: prog, done: done[0] }[status]);
+    var all = kidItems(c), st = c.st || {};
+    var plan = Core.statusPlan({
+      listId: c.idList, itemId: info.item.id, status: status, todoListId: d.cfg.todoListId, progListId: prog, doneListIds: done,
+      items: all.map(function (x) { return { id: x.id, state: x.state, prog: !!st[stKey(x.id)] }; }),
+    });
+    var reqs = [], next = {};
+    plan.items.forEach(function (p) {
+      var x = all.filter(function (y) { return y.id === p.id; })[0];
+      if (x && x.state !== p.state) {
+        reqs.push(api(t, 'PUT', '/cards/' + c.id + '/checkItem/' + x.id, { state: p.state }).then(function () { x.state = p.state; }));
+      }
+      if (p.prog) next[stKey(p.id)] = 1;
+    });
+    return Promise.all(reqs).then(function () {
+      return saveSt(t, c, next);
+    }).then(function () {
+      return moveCard(t, d, c, plan.moveTo);
+    }).then(function () {
+      return updateCardField(t, d, c);
     });
   }
 
@@ -479,7 +507,7 @@
         // Trello's Power-Up data and REST reads can lag right after a write: items this page added a moment
         // ago are remembered here too, so a refresh right after creating the card doesn't add them twice.
         var r = recentKid[gk] && recentKid[gk].s === card.shortLink ? recentKid[gk].i : {};
-        job = { checklist: cl, memberId: job.memberId, items: job.items.filter(function (it) { var k = Core.itemKey(it.id); return !have[k] && !r[k]; }) };
+        job = { checklist: cl, memberId: job.memberId, onItem: job.onItem, items: job.items.filter(function (it) { var k = Core.itemKey(it.id); return !have[k] && !r[k]; }) };
         return kidChecklist(t, card, cl);
       });
     }).then(function (list) {
@@ -490,7 +518,7 @@
           var nm = Core.kidItemName(it.name, strip);
           // The same open item is already in the card (added by another tab or a lagging read): link it, don't add.
           var same = (list.checkItems || []).filter(function (x) { return x.name === nm && x.state !== 'complete'; })[0];
-          if (same) { entries[Core.itemKey(it.id)] = Core.kidSuffix(same.id); return null; }
+          if (same) { entries[Core.itemKey(it.id)] = Core.kidSuffix(same.id); if (job.onItem) job.onItem(); return null; }
           return api(t, 'POST', '/checklists/' + list.id + '/checkItems', {
             name: nm, pos: 'bottom', due: it.due || undefined,
           }).then(function (ci) {
@@ -501,6 +529,7 @@
             // "[3]" in the epic item: the person's item starts with these points.
             var v = P() ? P().parse(it.name) : null;
             if (v != null) points[P().itemKey(ci.id)] = v;
+            if (job.onItem) job.onItem();
           }, function (e) { failed = e; });
         });
       }, Promise.resolve());
@@ -548,26 +577,37 @@
 
   // "＋ Cards → ☰ Checklist": one card "Epic / Checklist" per person with their items (added to their card if it exists).
   // memberIds: an id, a list of ids, or '*' for everyone with pending items.
-  function addChecklistCards(t, d, checklistId, memberIds) {
+  // onProgress(done, total) is called after every item.
+  function addChecklistCards(t, d, checklistId, memberIds, onProgress) {
     var err = todoListError(d);
     if (err) return Promise.reject(err);
     var cl = d.checklists.filter(function (x) { return x.id === checklistId; })[0];
     if (!cl) return Promise.resolve(null);
+    var mids = memberList(d, cl, memberIds);
+    var total = 0, n = 0;
+    mids.forEach(function (mid) { total += myPending(d, cl, mid).length; });
+    var tell = function () { if (onProgress) onProgress(Math.min(n, total), total); };
+    tell();
     // One person after another: each step rewrites the epic's "groups".
-    return memberList(d, cl, memberIds).reduce(function (p, mid) {
+    return mids.reduce(function (p, mid) {
       return p.then(function () {
         var items = myPending(d, cl, mid).map(function (j) { return j.item; });
-        return items.length ? addToKid(t, d, { checklist: cl, memberId: mid, items: items }) : null;
+        if (!items.length) return null;
+        var start = n;
+        return addToKid(t, d, { checklist: cl, memberId: mid, items: items, onItem: function () { n++; tell(); } })
+          .then(function () { n = start + items.length; tell(); });
       });
     }, Promise.resolve());
   }
 
   // "＋ Cards → ▤ Each": a separate TO DO card per item for the chosen people.
-  function addSeparateCards(t, d, checklistId, memberIds) {
+  function addSeparateCards(t, d, checklistId, memberIds, onProgress) {
     var cl = d.checklists.filter(function (x) { return x.id === checklistId; })[0];
     if (!cl) return addMany(t, d, [], null);
     var ids = memberList(d, cl, memberIds);
-    return addMany(t, d, pendingInChecklist(d, cl).filter(function (j) { return ids.indexOf(j.memberId) !== -1; }), null);
+    var jobs = pendingInChecklist(d, cl).filter(function (j) { return ids.indexOf(j.memberId) !== -1; });
+    if (onProgress) onProgress(0, jobs.length);
+    return addMany(t, d, jobs, onProgress);
   }
 
   function addMyChecklistCard(t, d, checklistId) { return addChecklistCards(t, d, checklistId, d.me.id); }
@@ -591,18 +631,47 @@
       .then(function () { if (jobs.length) d.alive = aliveLinks(d); return jobs.length; });
   }
 
-  // The name, priority and due date of an item in the epic are copied into people's checklist cards.
-  // Edits made in the cards are not copied back.
+  // The people's checklist cards "Epic / Checklist" of one checklist (not archived, not done).
+  function kidCardsOf(d, cl) {
+    var pre = String(cl.id).slice(-10) + ':', done = d.cfg.doneListIds || [], out = [];
+    Object.keys(d.groups || {}).forEach(function (k) {
+      if (k.indexOf(pre) !== 0) return;
+      var c = (d.kids || {})[d.groups[k].s];
+      if (c && !c.closed && !Core.isCardDone(c, done) && out.indexOf(c) === -1) out.push(c);
+    });
+    return out;
+  }
+
+  // The priority set in the epic reaches the cards made from it, even if it was set after the cards were made:
+  // the checklist's priority → people's checklist cards "Epic / Checklist"; an item's priority → its item in
+  // those cards and its separate TO DO cards. Only the emoji changes: the rest of the name may have been edited
+  // in the card and stays as it is. The due date of an item is copied into the checklist cards.
   function syncKidItems(t, d) {
-    var jobs = [];
-    var strip = P() ? P().strip : null;
+    var jobs = [], done = d.cfg.doneListIds || [], seen = {};
     d.checklists.forEach(function (cl) {
+      var clLevel = Core.parsePriority(cl.name);
+      if (clLevel) {
+        kidCardsOf(d, cl).forEach(function (c) {
+          if (Core.kidCardPriority(c.name) === clLevel) return;
+          c.name = Core.withKidCardPriority(c.name, clLevel);
+          jobs.push(api(t, 'PUT', '/cards/' + c.id, { name: c.name }));
+        });
+      }
       cl.checkItems.forEach(function (it) {
+        var level = Core.parsePriority(it.name);
         (d.board.members || []).forEach(function (m) {
           var info = linkInfo(d, it.id, m.id);
-          if (!info || info.kind !== 'kid') return;
-          var params = {}, name = Core.kidItemName(it.name, strip);
-          if (name && info.item.name !== name) params.name = name;
+          if (!info) return;
+          if (info.kind === 'card') {
+            var c = info.card;
+            if (!level || seen[c.id] || Core.isCardDone(c, done) || Core.parsePriority(c.name) === level) return;
+            seen[c.id] = 1;
+            c.name = Core.withPriority(c.name, level);
+            jobs.push(api(t, 'PUT', '/cards/' + c.id, { name: c.name }));
+            return;
+          }
+          var params = {};
+          if (level && Core.parsePriority(info.item.name) !== level) params.name = Core.withPriority(info.item.name, level);
           if (it.due && info.item.due !== it.due) params.due = it.due;
           if (!Object.keys(params).length) return;
           Object.keys(params).forEach(function (k) { info.item[k] = params[k]; });
@@ -611,6 +680,25 @@
       });
     });
     return Promise.all(jobs);
+  }
+
+  // A checklist card moved to a Done list: all its items are done (ticked, and no longer in progress).
+  // Resolves with the cards that changed.
+  function tickDoneKids(t, d) {
+    if (d.cfg.autoComplete === false) return Promise.resolve([]);
+    var done = d.cfg.doneListIds || [], jobs = [], touched = [];
+    Object.keys(d.kids || {}).forEach(function (s) {
+      var c = d.kids[s];
+      if (!c || c.closed || done.indexOf(c.idList) === -1) return;
+      kidItems(c).forEach(function (x) {
+        if (x.state === 'complete') return;
+        x.state = 'complete';
+        if (touched.indexOf(c) === -1) touched.push(c);
+        jobs.push(api(t, 'PUT', '/cards/' + c.id + '/checkItem/' + x.id, { state: 'complete' }));
+      });
+      if (Object.keys(c.st || {}).length) jobs.push(saveSt(t, c, {}));
+    });
+    return Promise.all(jobs).then(function () { return touched; });
   }
 
   function latest(dates) { return dates.filter(Boolean).sort().pop() || null; }
@@ -725,14 +813,19 @@
   }
 
   // Everything that keeps the epic and the cards in step, in order: new items into people's cards,
-  // names and dates into the cards, ticks both ways, and the points of cards whose items changed.
+  // priorities and dates into the cards, cards in Done tick their items, ticks both ways, and the points of cards whose items changed.
   function sync(t, d) {
+    var ticked = [];
     return appendNewItems(t, d).then(function () {
       return syncKidItems(t, d);
     }).then(function () {
+      return tickDoneKids(t, d);
+    }).then(function (cards) {
+      ticked = cards || [];
       return syncStates(t, d);
     }).then(function (changed) {
-      return Promise.all((changed || []).map(function (c) { return updateCardField(t, d, c); }));
+      var all = ticked.concat((changed || []).filter(function (c) { return ticked.indexOf(c) === -1; }));
+      return Promise.all(all.map(function (c) { return updateCardField(t, d, c); }));
     });
   }
 
@@ -763,6 +856,8 @@
     statusOf: statusOf,
     setStatus: setStatus,
     pendingPeople: pendingPeople,
+    syncKidItems: syncKidItems,
+    kidCardsOf: kidCardsOf,
     addChecklistCards: addChecklistCards,
     addSeparateCards: addSeparateCards,
     jobsFor: jobsFor,
