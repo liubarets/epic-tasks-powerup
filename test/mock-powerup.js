@@ -193,6 +193,13 @@
       if (S.renderOnRest && renderFn) setTimeout(renderFn, 0);
       return json(clone(card));
     }
+    if (method === 'PUT' && (m = path.match(/^\/checklists\/([^/]+)$/))) {
+      var hcl = S.checklists.filter(function (x) { return x.id === m[1]; })[0];
+      Object.values(S.cards).forEach(function (c) { (c.checklists || []).forEach(function (x) { if (x.id === m[1]) hcl = x; }); });
+      if (!hcl) return json({ message: 'not found' }, 404);
+      if (q.name !== undefined) hcl.name = q.name;
+      return json(clone(hcl));
+    }
     if (method === 'PUT' && (m = path.match(/^\/cards\/([^/]+)\/customField\/([^/]+)\/item$/))) {
       var cc = Object.values(S.cards).filter(function (c) { return c.id === m[1]; })[0] || (S.card.id === m[1] ? S.card : null);
       if (!cc) return json({ message: 'not found' }, 404);

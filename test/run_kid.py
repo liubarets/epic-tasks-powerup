@@ -129,17 +129,35 @@ with sync_playwright() as p:
     page.locator(".item").nth(0).locator("select.prio").select_option("1")
     page.wait_for_function(f"window.__cardById('{kid['id']}').checklists[0].checkItems[0].name === '🔴 Approve with legal'")
     check(True, "priority copied into my checklist card")
-    # a name edited in the epic is copied on the next open; an edit in the card is not copied back
-    page.evaluate("window.__state.checklists[0].checkItems[1].name = 'Transfer to IT @maria_petrenko'")
+    # the name may be corrected in the card: a later priority change only swaps the emoji, the rest stays
+    page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems[0].name = '🔴 Approve with legal (v2, edited)'")
     refresh()
-    check(page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems[1].name") == "Transfer to IT", "renamed in the epic -> renamed in my card")
+    page.locator(".item").nth(0).locator("select.prio").select_option("2")
+    page.wait_for_function(f"window.__cardById('{kid['id']}').checklists[0].checkItems[0].name === '🟠 Approve with legal (v2, edited)'", timeout=5000)
+    check(True, "priority changed later: only the emoji changes in my card, the edited name stays")
+    # a priority set in Trello itself (not through the select) reaches the card on the next open; names are not copied
+    page.evaluate("window.__state.checklists[0].checkItems[1].name = '🟢 Transfer to IT @maria_petrenko'")
+    refresh()
+    check(page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems[1].name") == "🟢 Tranfser to IT",
+          "priority from the epic reaches the card on the next open; the card's own name stays")
+    # the checklist's priority set after the card was made -> the card "Epic / Checklist" gets the emoji
+    page.locator("select.cl-prio").first.select_option("1")
+    page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / 🔴 Spring merch 24.11'", timeout=5000)
+    check(page.evaluate("window.__state.checklists[0].name") == "🔴 Spring merch 24.11", "checklist priority: epic checklist + my card name")
+    page.evaluate(f"window.__cardById('{kid['id']}').name = 'PRODUCT LAUNCHES & UPDATES / 🔴 Spring merch (renamed)'")
+    refresh()
+    page.locator("select.cl-prio").first.select_option("3")
+    page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / 🟢 Spring merch (renamed)'", timeout=5000)
+    check(True, "checklist priority changed again: only the emoji in the renamed card changes")
+    page.locator("select.cl-prio").first.select_option("0")
+    page.wait_for_timeout(500)
 
     # ticks: in my card -> epic; untick in my card -> epic reopens
     k0 = kid["checklists"][0]["checkItems"][0]["id"]
     page.evaluate(f"window.__tickIn('{kid['id']}', '{k0}', 'complete')")
     refresh()
     check(S()["checklists"][0]["checkItems"][0]["state"] == "complete", "ticked in my card -> ticked in the epic")
-    check("☰ ✓" in page.locator(".item").nth(0).locator(".chip").first.inner_text(), "chip shows the tick")
+    check("☰ DONE" in page.locator(".item").nth(0).locator(".chip").first.inner_text(), "chip shows the tick")
     page.evaluate(f"window.__tickIn('{kid['id']}', '{k0}', 'incomplete')")
     refresh()
     check(S()["checklists"][0]["checkItems"][0]["state"] == "incomplete", "unticked in my card -> epic item reopens")
@@ -206,11 +224,16 @@ with sync_playwright() as p:
     check(field() == "2", f"card points = sum of open items: {field()}")
     def choose(pg, row, cls, label):
         pg.locator(".cp-item", has_text=row).locator("button." + cls).click()
-        pg.evaluate("""(label) => { const it = window.__lastPopup.items.find(i => i.text.replace('✓ ', '') === label);
-          it.callback(TrelloPowerUp.iframe()); }""", label)
+        pg.wait_for_selector(".dd")
+        pg.evaluate("""(label) => [...document.querySelectorAll('.dd .dd-item')].find(b => b.textContent.replace('✓', '').trim() === label).click()""", label)
     check(sp.locator(".cp-item.done").count() == 1 and sp.locator(".cp-item.done .cp-st").inner_text().startswith("DONE"), "a ticked item shows DONE and does not count")
+    sp.locator(".cp-item", has_text="Design").locator("button.cp-sp").click()
+    btn, dd = sp.locator(".cp-item", has_text="Design").locator("button.cp-sp").bounding_box(), sp.locator(".dd").bounding_box()
+    check(sp.locator(".dd .dd-title").inner_text() == "Story points" and sp.locator(".dd .dd-item").count() == 9 and dd["y"] >= btn["y"] + btn["height"] - 1,
+          "points: a drop-down with 8 values + No estimate, opening down")
+    sp.screenshot(path=str(OUT / "kid-3b-points-dropdown.png"), full_page=True)
+    sp.keyboard.press("Escape")
     choose(sp, "Design", "cp-sp", "5")
-    check(sp.evaluate("window.__lastPopup.title") == "Story points" and len(sp.evaluate("window.__lastPopup.items")) == 9, "points: Trello's drop-down with 8 values + No estimate")
     sp.wait_for_function("(window.__cardById('" + CARD + "').customFieldItems || []).some(x => x.value.number === '7')")
     check(field() == "7", "Design 5 + Copy 2 = 7")
     sp.screenshot(path=str(OUT / "kid-3-card-points.png"), full_page=True)
@@ -223,6 +246,11 @@ with sync_playwright() as p:
     choose(sp, "Design", "cp-st", "IN PROGRESS")
     sp.wait_for_function("window.__cardById('" + CARD + "').idList === 'L_prog'", timeout=5000)
     check(True, "status In progress on an item moves the card to In progress")
+    sp.wait_for_timeout(300)
+    check(sp.locator(".cp-item", has_text="Design").locator(".cp-st").inner_text().startswith("IN PROGRESS") and
+          sp.locator(".cp-item", has_text="Copy").locator(".cp-st").inner_text().startswith("TO DO"),
+          "only that item is IN PROGRESS, the other keeps TO DO")
+    check(sp.evaluate("window.__state.plugin['" + CARD + "'].st") == {"00kitem1": 1}, "in-progress items are kept on the card ('st')")
     sp.evaluate("window.__tickIn('" + CARD + "', ('kitem2').padStart(24, '0'), 'complete'); window.__rerender()")
     sp.wait_for_function("(window.__cardById('" + CARD + "').customFieldItems || []).some(x => x.value.number === '3')")
     check(True, "an item ticked in the card: its points drop out of the card's points (5 -> 3)")
@@ -266,6 +294,47 @@ with sync_playwright() as p:
 
     real = [e for e in errors if "favicon" not in e]
     check(not real, f"no JS errors: {real}")
+    # ---------- a card with a checklist moved to Done: its items are done ----------
+    dn = open_page("cardpoints.html", TODO_CARD.replace("idList: 'L_todo'", "idList: 'L_done'"))
+    dn.wait_for_selector(".cp-item")
+    dn.wait_for_function("window.__cardById('" + CARD + "').checklists[0].checkItems.every(i => i.state === 'complete')", timeout=5000)
+    dn.wait_for_timeout(300)
+    labels = dn.locator(".cp-st").all_inner_texts()
+    check(all(x.startswith("DONE") for x in labels), f"card in Done: every item shows DONE and is ticked: {labels}")
+    dn.close()
+
+    # ---------- "＋ Cards" menu stays open, several jobs one after another, progress per row ----------
+    mm = open_page("section.html", AS_MARIA)
+    mm.wait_for_selector(".my-btn")
+    mm.evaluate("window.__postDelay = 500")
+    mm.locator(".my-btn").first.click()
+    check(mm.locator(".my-menu .my-x").count() == 1, "the menu has a × to close it")
+    mm.locator(".my-menu .my-row").first.locator("button", has_text="Checklist").click()
+    mm.wait_for_selector(".my-menu .my-row.job")
+    check(mm.locator(".my-menu").count() == 1, "the menu stays open after a click on ☰ Checklist")
+    second = mm.locator(".my-menu .my-row:not(.job):not(.all)").first
+    who2 = second.locator(".my-name").inner_text()
+    second.locator("button", has_text="Each").click()
+    mm.wait_for_function("document.querySelectorAll('.my-menu .my-row.job').length === 2")
+    mm.wait_for_selector(".my-menu .my-prog", state="attached")
+    mm.screenshot(path=str(OUT / "kid-8b-menu-progress.png"), full_page=True)
+    jt = mm.locator(".my-menu .my-row.job").all_inner_texts()
+    check(len(jt) == 2 and ("Waiting" in jt[1] or "/" in jt[1] or "✓" in jt[1]), f"two jobs, one after another, with a progress bar: {jt}")
+    check(mm.locator(".my-btn").first.inner_text().startswith("Creating"), "the button shows the cards are being made")
+    mm.wait_for_function("document.querySelectorAll('.my-menu .my-ok').length === 2", timeout=20000)
+    ok = mm.locator(".my-menu .my-ok").all_inner_texts()
+    check(mm.locator(".my-menu").count() == 1 and len(ok) == 2, f"both done, the menu is still open: {ok}")
+    st = mm.evaluate("window.__state")
+    check(any(c["name"].endswith(" / Spring merch 24.11") and MARIA in c["idMembers"] for c in st["cards"].values()), "my checklist card is there")
+    check(sum(1 for c in st["cards"].values() if c["name"].endswith("— Spring merch 24.11") and len(c["idMembers"]) == 1 and c["idMembers"][0] != MARIA) >= 2,
+          f"separate cards for {who2}")
+    mm.locator(".my-menu .my-x").click()
+    check(mm.locator(".my-menu").count() == 0, "× closes the menu")
+    mm.locator(".my-btn").first.click()
+    mm.mouse.click(700, 880)
+    check(mm.locator(".my-menu").count() == 0, "a click outside closes the menu")
+    mm.close()
+
     # ---------- "＋ Cards" for other people: Everyone → one checklist card per person ----------
     ev = open_page("section.html", AS_MARIA)
     ev.wait_for_selector(".my-btn")
@@ -279,6 +348,15 @@ with sync_playwright() as p:
     check(per == [(1, 1), (1, 1), (1, 2), (1, 2)], f"Everyone: a card per tagged person with only their items: {per}")
     check(ev.locator(".my-btn").all_inner_texts() == ["＋ Cards", "＋ Cards (4) ▾"] and ev.locator(".my-btn").first.is_disabled(), f"Spring has nothing left: grey, inactive button: {ev.locator('.my-btn').all_inner_texts()}")
     ev.screenshot(path=str(OUT / "kid-9-everyone.png"), full_page=True)
+    two = [c for c in kids if len(c["checklists"][0]["checkItems"]) == 2 and MARIA not in c["idMembers"]][0]
+    ev.evaluate(f"window.__cardById('{two['id']}').idList = 'L_done'")
+    ev.click("button[data-action=refresh]")
+    ev.wait_for_function(f"window.__cardById('{two['id']}').checklists[0].checkItems.every(i => i.state === 'complete')", timeout=5000)
+    check(True, "a checklist card moved to Done by hand: its items are ticked when the epic is opened")
+    ev.wait_for_timeout(500)
+    who = [m for m in two["idMembers"]][0]
+    done_chips = ev.evaluate("(m) => [...document.querySelectorAll('.chip.kid[data-member=\"' + m + '\"]')].map(b => b.textContent)", who)
+    check(done_chips and all("DONE" in x for x in done_chips), f"its chips in the epic say DONE: {done_chips}")
     ev.close()
 
     # ---------- no duplicate items when the epic's records lag behind (Trello reads right after a write) ----------
@@ -307,13 +385,20 @@ with sync_playwright() as p:
     kidc = lambda: [c for c in sp2.evaluate("window.__state")["cards"].values() if c["name"].endswith(" / Spring merch 24.11")][0]
     def pick(locator, label):
         locator.click()
-        sp2.evaluate("""(label) => { const it = window.__lastPopup.items.find(i => i.text.replace('✓ ', '') === label);
-          it.callback(TrelloPowerUp.iframe()); }""", label)
+        sp2.wait_for_selector(".dd")
+        sp2.evaluate("""(label) => [...document.querySelectorAll('.dd .dd-item')].find(b => b.textContent.replace('✓', '').trim() === label).click()""", label)
+    sp2.locator(".chip.kid").first.click()
+    sp2.wait_for_selector(".dd")
+    check(sp2.locator(".dd .dd-item").all_inner_texts() == ["✓TO DO", "IN PROGRESS", "DONE"] or
+          [x.replace("\n", "") for x in sp2.locator(".dd .dd-item").all_inner_texts()] == ["✓TO DO", "IN PROGRESS", "DONE"],
+          f"chip opens a drop-down: TO DO / IN PROGRESS / DONE, no @name and no 'Open card': {sp2.locator('.dd .dd-item').all_inner_texts()}")
+    sp2.keyboard.press("Escape")
     pick(sp2.locator(".chip.kid").first, "IN PROGRESS")
-    check(sp2.evaluate("window.__lastPopup.title") == "Status" and [i["text"] for i in sp2.evaluate("window.__lastPopup.items.map(i => ({ text: i.text }))")] == ["✓ TO DO", "IN PROGRESS", "DONE"],
-          "chip opens Trello's drop-down: TO DO / IN PROGRESS / DONE, no @name and no 'Open card'")
     sp2.wait_for_function("Object.values(window.__state.cards).some(c => c.name.endsWith(' / Spring merch 24.11') && c.idList === 'L_prog')", timeout=5000)
     check(kidc()["idList"] == "L_prog", "one item → In progress from the epic moves the whole checklist card to In progress")
+    sp2.wait_for_timeout(600)
+    chips2 = [sp2.locator(".chip.kid").nth(i).inner_text() for i in (0, 1)]
+    check("IN PROGRESS" in chips2[0].upper() and "TO DO" in chips2[1], f"the other item keeps its status (TO DO): {chips2}")
     sp2.wait_for_timeout(600)
     pick(sp2.locator(".chip.kid").first, "DONE")
     sp2.wait_for_timeout(1200)

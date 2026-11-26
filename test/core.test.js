@@ -191,3 +191,48 @@ test('checklist cards: groups + links of a big epic still fit in 4096 characters
   const size = JSON.stringify({ links, groups }).length;
   assert.ok(size < 4096, 'size ' + size);
 });
+
+test('checklist card name: the checklist priority goes after the last " / ", the rest stays', () => {
+  assert.equal(C.withKidCardPriority('TEST EPIC / ZYN SDK - 26.11', 1), 'TEST EPIC / 🔴 ZYN SDK - 26.11');
+  assert.equal(C.withKidCardPriority('TEST EPIC / 🟢 GUNIA merch (edited)', 2), 'TEST EPIC / 🟠 GUNIA merch (edited)');
+  assert.equal(C.withKidCardPriority('🔴 Big epic / Spring', 3), '🔴 Big epic / 🟢 Spring', "the epic's own emoji is left alone");
+  assert.equal(C.withKidCardPriority('Epic / 🟠 Spring', 0), 'Epic / Spring');
+  assert.equal(C.withKidCardPriority('Renamed card', 1), '🔴 Renamed card');
+  assert.equal(C.kidCardPriority('🔴 Big epic / Spring'), 0);
+  assert.equal(C.kidCardPriority('Epic / 🟠 Spring'), 2);
+});
+
+test('item status: own status per item, Done list makes everything done', () => {
+  assert.equal(C.itemStatus('L_done', { state: 'incomplete' }, false, ['L_done']), 'done');
+  assert.equal(C.itemStatus('L_prog', { state: 'complete' }, true, ['L_done']), 'done');
+  assert.equal(C.itemStatus('L_prog', { state: 'incomplete' }, true, ['L_done']), 'prog');
+  assert.equal(C.itemStatus('L_prog', { state: 'incomplete' }, false, ['L_done']), 'todo', 'the card being in progress does not change other items');
+  const lists = [{ id: 'a', name: 'Backlog' }, { id: 't', name: 'TO DO' }, { id: 'x', name: 'Review' }, { id: 'p', name: 'In progress' }, { id: 'd', name: 'Done' }];
+  assert.equal(C.progressListId(lists, { todoListId: 't', doneListIds: ['d'] }), 'p');
+  assert.equal(C.progressListId(lists.filter((l) => l.id !== 'p'), { todoListId: 't', doneListIds: ['d'] }), 'x');
+});
+
+test('status plan: one item in progress moves the card, the others keep their status', () => {
+  const base = { todoListId: 'T', progListId: 'P', doneListIds: ['D'] };
+  const items = [{ id: 'a', state: 'incomplete' }, { id: 'b', state: 'incomplete' }, { id: 'c', state: 'complete' }];
+  let p = C.statusPlan(Object.assign({ listId: 'T', items, itemId: 'a', status: 'prog' }, base));
+  assert.deepEqual(p.items.map((x) => [x.id, x.state, x.prog]), [['a', 'incomplete', true], ['b', 'incomplete', false], ['c', 'complete', false]]);
+  assert.equal(p.moveTo, 'P');
+  // already in progress: no move
+  p = C.statusPlan(Object.assign({ listId: 'P', items: [{ id: 'a', state: 'incomplete', prog: true }, { id: 'b', state: 'incomplete' }], itemId: 'b', status: 'prog' }, base));
+  assert.equal(p.moveTo, null);
+  assert.deepEqual(p.items.map((x) => x.prog), [true, true]);
+  // the last open item done -> Done
+  p = C.statusPlan(Object.assign({ listId: 'P', items: [{ id: 'a', state: 'complete' }, { id: 'b', state: 'incomplete', prog: true }], itemId: 'b', status: 'done' }, base));
+  assert.equal(p.moveTo, 'D');
+  assert.deepEqual(p.items.map((x) => [x.state, x.prog]), [['complete', false], ['complete', false]]);
+  // one of two done -> stays
+  p = C.statusPlan(Object.assign({ listId: 'P', items: [{ id: 'a', state: 'incomplete' }, { id: 'b', state: 'incomplete' }], itemId: 'b', status: 'done' }, base));
+  assert.equal(p.moveTo, null);
+  // a card in Done: its items count as done; reopening one as TO DO ticks the others and brings the card back
+  p = C.statusPlan(Object.assign({ listId: 'D', items: [{ id: 'a', state: 'incomplete' }, { id: 'b', state: 'incomplete' }], itemId: 'a', status: 'todo' }, base));
+  assert.equal(p.moveTo, 'T');
+  assert.deepEqual(p.items.map((x) => x.state), ['incomplete', 'complete']);
+  p = C.statusPlan(Object.assign({ listId: 'D', items: [{ id: 'a', state: 'complete' }], itemId: 'a', status: 'prog' }, base));
+  assert.equal(p.moveTo, 'P');
+});

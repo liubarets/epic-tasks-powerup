@@ -163,11 +163,23 @@ with sync_playwright() as p:
     page.screenshot(path=str(OUT / "2-after-actions.png"), full_page=True)
 
     # 6) a chip with a card opens a status menu: open the card from it, or move the card
-    page.locator(".chip.linked").first.click()
-    items = page.evaluate("window.__lastPopup.items.map(i => i.text)")
-    check(page.evaluate("window.__lastPopup.title") == "Status" and len(items) == 3 and items[-1].endswith("DONE"), f"status drop-down: {items}")
+    chip = page.locator(".chip.linked").first
+    chip.click()
+    page.wait_for_selector(".dd")
+    items = page.locator(".dd .dd-item").all_inner_texts()
+    box, dd = chip.bounding_box(), page.locator(".dd").bounding_box()
+    check(page.locator(".dd .dd-title").inner_text() == "Status" and len(items) == 3 and items[-1].endswith("DONE"), f"status drop-down: {items}")
+    check(dd["y"] >= box["y"] + box["height"] - 1, f"the drop-down opens down from the chip: chip {box['y']}, list {dd['y']}")
+    check(page.locator(".dd .dd-x").count() == 1 and page.locator(".dd .dd-item.on").count() == 1, "× and ✓ on the current status, like Trello")
+    page.screenshot(path=str(OUT / "2b-status-dropdown.png"), full_page=True)
+    page.locator(".dd .dd-x").click()
+    check(page.locator(".dd").count() == 0, "× closes it")
+    chip.click()
+    page.mouse.click(5, 5)
+    check(page.locator(".dd").count() == 0, "a click elsewhere closes it")
+    chip.click()
     before = {k: c["idList"] for k, c in S()["cards"].items()}
-    page.evaluate("window.__lastPopup.items.find(i => i.text.replace('✓ ', '') === 'DONE').callback(TrelloPowerUp.iframe())")
+    page.evaluate("[...document.querySelectorAll('.dd .dd-item')].find(b => b.textContent.replace('✓', '').trim() === 'DONE').click()")
     page.wait_for_function("Object.values(window.__state.cards).filter(c => c.idList === 'L_done').length > " + str(sum(1 for v in before.values() if v == "L_done")), timeout=5000)
     moved = [k for k, c in S()["cards"].items() if before.get(k) != c["idList"]]
     check(len(moved) == 1 and S()["cards"][moved[0]]["idList"] == "L_done", f"DONE from the epic moves that person's card to Done: {moved}")
