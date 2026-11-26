@@ -209,7 +209,13 @@ test('item status: own status per item, Done list makes everything done', () => 
   assert.equal(C.itemStatus('L_prog', { state: 'incomplete' }, false, ['L_done']), 'todo', 'the card being in progress does not change other items');
   const lists = [{ id: 'a', name: 'Backlog' }, { id: 't', name: 'TO DO' }, { id: 'x', name: 'Review' }, { id: 'p', name: 'In progress' }, { id: 'd', name: 'Done' }];
   assert.equal(C.progressListId(lists, { todoListId: 't', doneListIds: ['d'] }), 'p');
-  assert.equal(C.progressListId(lists.filter((l) => l.id !== 'p'), { todoListId: 't', doneListIds: ['d'] }), 'x');
+  assert.equal(C.progressListId(lists.filter((l) => l.id !== 'p'), { todoListId: 't', doneListIds: ['d'] }), null, 'no column named so: none (not the next one by place)');
+  const moved = [{ id: 'p', name: 'IN PROGRESS' }, { id: 'd', name: 'Done' }, { id: 'x', name: 'Review' }, { id: 't', name: 'TO DO' }];
+  assert.equal(C.progressListId(moved, { todoListId: 't', doneListIds: ['d'] }), 'p', 'found by name wherever it stands');
+  const many = [{ id: 'w', name: 'WIP' }, { id: 'p', name: 'In-progress' }, { id: 'u', name: 'В роботі' }];
+  assert.equal(C.progressListId(many, {}), 'p', '"In progress" wins over other names');
+  assert.equal(C.progressListId([{ id: 'u', name: 'В роботі' }], {}), 'u');
+  assert.equal(C.progressListId([{ id: 'u', name: 'Doing' }], { doneListIds: ['u'] }), null, 'a Done list is never in progress');
 });
 
 test('status plan: one item in progress moves the card, the others keep their status', () => {
@@ -277,5 +283,6 @@ test('sprints: list names, TO DO SP columns, order across the new year', () => {
   assert.equal(C.panelColumn(lists.concat([{ id: 't49', name: 'TO DO SP49' }]), cfg, { id: 't47', newest: 't48' }).col.id, 't49', 'a newer sprint appeared: back to the newest');
   assert.equal(C.progressListId(lists, cfg), 'p');
   const unnamed = [{ id: 't', name: 'TO DO' }, { id: 'r', name: 'Review' }, { id: 'd', name: 'DONE' }, { id: 't48', name: 'TO DO SP48' }];
-  assert.equal(C.progressListId(unnamed, cfg), 'r', 'a TO DO SP column right of Done is never in progress');
+  assert.equal(C.progressListId(unnamed, cfg), null, 'no column named "in progress": none');
+  assert.equal(C.progressListId([{ id: 't48', name: 'TO DO SP48' }, { id: 'p', name: 'In progress' }], cfg), 'p');
 });
