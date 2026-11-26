@@ -190,6 +190,8 @@ with sync_playwright() as p:
     check(section_for("S.plugin.board.cfg.sp.on = true; delete S.plugin[S.card.id]; S.card.idList = 'L_todo'") == "STORY POINTS", "any TO DO card with a checklist: STORY POINTS")
     check(section_for("S.card.idList = 'L_prog'") == "TASKS", "a card with a checklist outside TO DO, never estimated by items: TASKS")
     check(section_for("S.plugin[S.card.id] = { pts: { 'x': 1 } }") == "STORY POINTS", "outside TO DO but already estimated by items: STORY POINTS")
+    check(section_for("delete S.plugin[S.card.id]; S.card.desc = '[Q4 launches](https://trello.com/c/AbC/1-epic) / C'") == "STORY POINTS",
+          "a card made from an epic (description links to it), out of TO DO, not estimated, no 'kid' mark: STORY POINTS")
     cp.close()
 
     # ---------- STORY POINTS section on a TO DO card with a checklist ----------
@@ -269,6 +271,22 @@ with sync_playwright() as p:
     check(ev.locator(".my-btn").all_inner_texts() == ["＋ Cards (4) ▾"], f"Spring has nothing left: {ev.locator('.my-btn').all_inner_texts()}")
     ev.screenshot(path=str(OUT / "kid-9-everyone.png"), full_page=True)
     ev.close()
+
+    # ---------- no duplicate items when the epic's records lag behind (Trello reads right after a write) ----------
+    dp = open_page("section.html", AS_MARIA)
+    dp.wait_for_selector(".my-btn")
+    dp.locator(".my-btn").first.click()
+    dp.locator(".my-row").first.locator("button", has_text="Checklist").click()
+    dp.wait_for_function("Object.values(window.__state.cards).some(c => c.name.endsWith(' / Spring merch 24.11') && (c.checklists || [])[0] && c.checklists[0].checkItems.length === 2)", timeout=10000)
+    dp.wait_for_timeout(800)
+    # the epic "forgets" which items went into the card, as a stale read would show it; then the epic is opened again
+    dp.evaluate("() => { const g = window.__state.plugin.card.groups; Object.values(g).forEach(x => { x.i = {}; }); }")
+    dp.click("button[data-action=refresh]")
+    dp.wait_for_timeout(1500)
+    kc = [c for c in dp.evaluate("window.__state")["cards"].values() if c["name"].endswith(" / Spring merch 24.11")]
+    n_items = [len(c["checklists"][0]["checkItems"]) for c in kc]
+    check(n_items == [2], f"items already in the card are linked again, not added twice: {n_items}")
+    dp.close()
 
     b.close()
 
