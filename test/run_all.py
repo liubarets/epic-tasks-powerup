@@ -1,0 +1,104 @@
+"""“＋ All cards” in the epic's toolbar: cards for every checklist at once, against a mocked Trello.
+Run from the repo root:  python3 test/run_all.py
+"""
+import functools, http.server, json, pathlib, sys, threading
+from playwright.sync_api import sync_playwright
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+MOCK = (ROOT / "test" / "mock-powerup.js").read_text(encoding="utf-8")
+OUT = ROOT / "test" / "out"
+OUT.mkdir(exist_ok=True)
+
+class Quiet(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *a): pass
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Quiet, directory=str(ROOT)))
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+BASE = f"http://127.0.0.1:{srv.server_port}"
+
+fails = []
+def check(cond, msg):
+    print(("PASS " if cond else "FAIL ") + msg)
+    if not cond:
+        fails.append(msg)
+
+MARIA = "mem" + "1".zfill(21)
+AS_MARIA = """S => {
+  S.me = { id: 'mem' + '1'.padStart(21, '0'), username: 'maria_petrenko', fullName: 'Maria Petrenko' };
+}"""
+ONE_CHECKLIST = """S => { S.me = { id: 'mem' + '1'.padStart(21, '0'), username: 'maria_petrenko', fullName: 'Maria Petrenko' }; S.checklists = [S.checklists[0]]; }"""
+
+with sync_playwright() as p:
+    b = p.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox"])
+    ctx = b.new_context(viewport={"width": 720, "height": 900}, device_scale_factor=2)
+    errors = []
+
+    def open_page(path, patch=None):
+        pg = ctx.new_page()
+        pg.route("https://p.trellocdn.com/power-up.min.js", lambda r: r.fulfill(body=MOCK, content_type="application/javascript"))
+        pg.route("https://p.trellocdn.com/power-up.min.css", lambda r: r.fulfill(body="", content_type="text/css"))
+        pg.on("pageerror", lambda e: errors.append(f"{path}: {e}"))
+        pg.on("console", lambda m: errors.append(f"{path}: {m.text}") if m.type == "error" else None)
+        if patch:
+            pg.add_init_script("window.__mockPatch = " + patch)
+        pg.goto(f"{BASE}/{path}")
+        return pg
+
+    page = open_page("section.html", AS_MARIA)
+    page.wait_for_selector(".cl")
+    S = lambda: page.evaluate("window.__state")
+    allb = page.locator(".all-btn")
+    check(allb.inner_text() == "＋ All cards (10) ▾", f"toolbar button counts open items × people of every checklist: {allb.inner_text()}")
+    check(page.locator(".my-btn").all_inner_texts() == ["＋ Cards (6) ▾", "＋ Cards (4) ▾"], "per-checklist buttons are still there")
+    allb.click()
+    menu = page.locator(".all-menu")
+    head = menu.locator(".my-menu-head").inner_text()
+    names = menu.locator(".my-name").all_inner_texts()
+    counts = menu.locator(".my-n").all_inner_texts()
+    check("this epic" in head and "2 checklists" in head, f"menu head: {head}")
+    check(names[0] == "Me" and names[-1] == "Everyone" and counts[0] == "5" and counts[-1] == "10",
+          f"a row per person summed over the checklists (me 2 + 3) + Everyone: {names} {counts}")
+    check(len(set(names)) == len(names), "each person once")
+    page.screenshot(path=str(OUT / "all-1-menu.png"), full_page=True)
+
+    # Me → ☰ Checklist: one card per checklist
+    menu.locator(".my-row").first.locator("button", has_text="Checklist").click()
+    page.wait_for_function("Object.values(window.__state.cards).filter(c => / \\/ (Spring merch|Retail SDK)/.test(c.name)).length === 2", timeout=8000)
+    page.wait_for_selector(".all-menu .my-ok")
+    page.wait_for_timeout(500)
+    st = S()
+    kids = sorted(c["name"] for c in st["cards"].values() if " / " in c["name"] and MARIA in c["idMembers"])
+    check(kids == ["PRODUCT LAUNCHES & UPDATES / Retail SDK - 26.11", "PRODUCT LAUNCHES & UPDATES / Spring merch 24.11"], f"two cards for me, one per checklist: {kids}")
+    items = {c["name"].split(" / ")[1]: len(c["checklists"][0]["checkItems"]) for c in st["cards"].values() if " / " in c["name"] and MARIA in c["idMembers"]}
+    check(items == {"Spring merch 24.11": 2, "Retail SDK - 26.11": 3}, f"each with my items of that checklist: {items}")
+    check(page.locator(".all-menu").count() == 1, "the menu stays open")
+    ok = page.locator(".all-menu .my-ok").first.inner_text()
+    check("5 items added" in ok, f"my row: {ok}")
+    check(page.locator(".my-btn").all_inner_texts() == ["＋ Cards (4) ▾", "＋ Cards (1) ▾"], "per-checklist counts follow")
+    check(allb.inner_text() == "＋ All cards (5) ▾", f"5 left: {allb.inner_text()}")
+
+    # Everyone → ▤ Each: a separate card for every item left
+    before = {k for k, c in S()["cards"].items() if " — " in c["name"]}
+    page.locator(".all-menu .my-row.all").locator("button", has_text="Each").click()
+    page.wait_for_function("document.querySelector('.all-btn') && document.querySelector('.all-btn').disabled", timeout=10000)
+    page.wait_for_timeout(500)
+    st = S()
+    seps = [c for k, c in st["cards"].items() if " — " in c["name"] and k not in before]
+    check(len(seps) == 5, f"5 separate cards: {sorted(c['name'] for c in seps)}")
+    check(allb.inner_text() == "＋ All cards" and page.locator(".my-btn").all_inner_texts() == ["＋ Cards", "＋ Cards"], "nothing left: buttons grey")
+    page.screenshot(path=str(OUT / "all-2-done.png"), full_page=True)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+    check(page.locator(".all-menu").count() == 0, "Esc closes the menu")
+    page.close()
+
+    one = open_page("section.html", ONE_CHECKLIST)
+    one.wait_for_selector(".cl")
+    check(one.locator(".all-btn").count() == 0, "an epic with one checklist has no '＋ All cards' (its own '＋ Cards' does the same)")
+    one.close()
+
+    check(not errors, f"no JS errors: {errors}")
+    b.close()
+
+srv.shutdown()
+print("\nFAILED:" if fails else "\nALL PASSED", *fails, sep="\n  ")
+sys.exit(1 if fails else 0)
