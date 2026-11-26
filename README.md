@@ -6,7 +6,7 @@ It adds a **"TASKS"** section to the back of an epic card:
 
 - A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3) and a "↕ Sort by priority" button.
 - A chip for **every assignee** next to each item: `@username ＋ TO DO`. A click creates a card in your TO DO list assigned to that person. **The item stays in the epic.**
-- After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. A click opens a small menu where anyone can change the status (TO DO / In progress / DONE) or open the card. A separate card moves to that list. For an item in a checklist card: In progress moves the whole card out of TO DO; DONE ticks the item, and when all of that person's items in the card are ticked the card moves to Done. The in-progress list is the board's list between TO DO and the first Done list (one named like "progress" is preferred).
+- After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. A click opens Trello's drop-down list where anyone can change the status (TO DO / In progress / DONE). A separate card moves to that list. For an item in a checklist card: In progress moves the whole card out of TO DO; DONE ticks the item, and when all of that person's items in the card are ticked the card moves to Done. The in-progress list is the board's list between TO DO and the first Done list (one named like "progress" is preferred).
 - "＋ Assign to me": adds your @username to an item you are not mentioned in. It does not create a TO DO card: use your chip or "＋ Cards" for that.
 - **"＋ Cards (n) ▾"** in a checklist header: n = open items × assignees of that checklist with no card yet. Anyone can use it, for themselves or for others. The menu has a row per person tagged in those items (me first, with their count) and an **Everyone** row; each row has two buttons:
   - **☰ Checklist**: a card "Epic / Checklist" in TO DO with that person as its member and a checklist of just their items (priority emoji and due dates kept, no @mentions). If they already have such a card for this checklist, the items are added to it.
@@ -20,7 +20,7 @@ And **story points** for the board (turned on per board in settings):
 - The **SP** button in the board header (the Teamload icon: a white ⚡ on blue) opens a **panel at the bottom of the board**: the TO DO list, the picked person and their points ("Dmytro Voloshyn · 14 points · 5 cards"). The panel updates by itself while you work — when someone changes points, members or moves cards — and stays open (it reopens on its own the next time you open the board) until you close it with ×. A click on the person opens a list like Trello's own filter: checkbox on the left, each person's points on the right, the TO DO total on top, search by name; clicking the ticked person unpicks them (then the panel shows the total for everyone). The picked person is personal: everyone picks their own.
 - **Estimating without opening cards:** the panel shows "3 unestimated" (or "All estimated"). A click opens a big window with the TO DO cards of the picked person, one row each with 0.5, 1, 2, 3, 5, 8, 13, 21. One click saves the value; cards estimated there stay listed with a ✓ until the window is closed. Tabs: "No estimate" and "All" (to change a value). The person can be changed in the window too. Setting values needs Teamload to be connected.
 - On the card back, the "Story points" badge opens quick values: 0.5, 1, 2, 3, 5, 8, 13, 21, No estimate.
-- **A card with a checklist is estimated item by item** (any card in TO DO, including people's checklist cards): a **STORY POINTS** section on its back has a small scale under every open item, and the card's points are the sum of its open items. Ticking an item takes its points out of the card's points at once. A click on the value already set clears it. In the Estimate window such a card is one row per open item.
+- **A card with a checklist is estimated item by item** (any card in TO DO, including people's checklist cards): a **STORY POINTS** section on its back has, for every item, a points drop-down (⚡ 3 ▾) and a status drop-down (TO DO / IN PROGRESS / DONE, same rules as in the epic), and the card's points are the sum of its open items. Ticking an item takes its points out of the card's points at once. A click on the value already set clears it. In the Estimate window such a card is one row per open item.
 
 Installed **once per Workspace**. Nobody on the team needs a browser extension.
 
@@ -110,7 +110,7 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 - Trello mobile apps may not show custom Power-Up sections. Emoji priorities and TO DO cards are visible there as regular Trello data.
 - Assignees are taken from `@username` in the item text. If the person is not a board member, their chip is grey and inactive.
 - After an update, GitHub Pages may serve the old version from cache for up to 10 minutes.
-- Trello doesn't let a Power-Up draw inside its own checklist, so the story point scales live in a STORY POINTS section under it.
+- Trello doesn't let a Power-Up draw inside its own checklist, so the story point and status drop-downs live in a STORY POINTS section under it.
 - The panel's "N unestimated" counts cards whose field is empty. A card estimated by items counts as unestimated only while none of its open items has points; the Estimate window lists every unestimated item.
 - Removing an item from your checklist card by hand doesn't take you off it in the epic: the item is added again the next time someone opens the epic. Change the epic instead.
 - Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the panel at the bottom of the board and the SP button sits among the other header buttons. Card badges always come after Trello's own icons.
@@ -130,7 +130,7 @@ spbar.html          story points panel at the bottom of the board
 storypoints.html    person list (opened from the panel)
 estimate.html       "Estimate story points" window (opened from the panel)
 spedit.html         quick story point values (card back badge)
-cardpoints.html     "STORY POINTS" section: a scale under every item of a card with a checklist
+cardpoints.html     "STORY POINTS" section: points and status drop-downs for every item of a card with a checklist
 addall.html         "Add to TO DO" menu (opened from the TASKS header)
 auth.html           connect window
 auth-redirect.html  OAuth 2.0 callback
