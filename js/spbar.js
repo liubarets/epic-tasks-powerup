@@ -50,7 +50,7 @@
     return Promise.all([
       t.get('board', 'shared', 'cfg', {}),
       t.board('members', 'customFields'),
-      t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems'),
+      t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems', 'badges'),
       t.lists('id', 'name'),
       t.get('member', 'private', 'spPerson'),
     ]).then(function (r) {
@@ -71,7 +71,7 @@
       var list = lists.filter(function (l) { return l.id === cfg.todoListId; })[0];
       var person = pid === '_none' ? { id: '_none', fullName: 'No members' }
         : (board.members || []).filter(function (m) { return m.id === pid; })[0];
-      var s = person ? (sum.by[person.id] || { points: 0, cards: 0, none: 0 }) : { points: sum.total, cards: sum.cards, none: sum.none };
+      var s = person ? (sum.by[person.id] || { points: 0, cards: 0, tasks: 0, none: 0 }) : { points: sum.total, cards: sum.cards, tasks: sum.tasks, none: sum.none };
       var who = person
         ? avatar(person) + '<span class="spbar-name">' + esc(person.fullName || person.username) + '</span>'
         : '<span class="sp-av sp-av-24 sp-av-pick">&#931;</span><span class="spbar-name sp-name-pick">Choose a person</span>';
@@ -82,7 +82,8 @@
           '<span class="spbar-sep"></span>' +
           '<span class="spbar-num">' + P.fmt(s.points) + '</span>' +
           '<span class="spbar-unit">' + (person ? 'points' : 'points · everyone') + '</span>' +
-          '<span class="spbar-sub">' + esc(P.cardsWord(s.cards)) + '</span>' +
+          // Tasks, not cards: a card with a checklist counts as its open items.
+          '<span class="spbar-sub">' + esc(P.tasksWord(s.tasks)) + '</span>' +
           // Opens the big "Estimate story points" window (estimate.html).
           (s.cards ? '<button type="button" class="spbar-est' + (s.none ? ' warn' : ' ok') + '" data-action="estimate" aria-haspopup="dialog">' +
             BOLT + esc(s.none ? s.none + ' unestimated' : 'All estimated') + '</button>' : '') +

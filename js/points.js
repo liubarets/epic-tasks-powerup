@@ -64,18 +64,27 @@
 
   // Sums for one list: total (every card once) and per member (a card with two members counts for both).
   // by['_none'] = cards without members.
+  // Tasks in a card: its open checklist items, or the card itself when it has no checklist
+  // (from the card's badges: checkItems / checkItemsChecked).
+  function cardTasks(c) {
+    var b = (c && c.badges) || {}, n = Number(b.checkItems) || 0;
+    return n > 0 ? Math.max(0, n - (Number(b.checkItemsChecked) || 0)) : 1;
+  }
+
   function summarize(cards, fieldId, listId) {
-    var out = { total: 0, cards: 0, none: 0, by: {} };
+    var out = { total: 0, cards: 0, tasks: 0, none: 0, by: {} };
     (cards || []).forEach(function (c) {
       if (!c || c.closed || (listId && c.idList !== listId)) return;
-      var v = cardPoints(c, fieldId);
+      var v = cardPoints(c, fieldId), n = cardTasks(c);
       out.cards++;
+      out.tasks += n;
       if (v == null) out.none++; else out.total += v;
       var ids = memberIds(c);
       if (!ids.length) ids = ['_none'];
       ids.forEach(function (id) {
-        var b = out.by[id] || (out.by[id] = { points: 0, cards: 0, none: 0 });
+        var b = out.by[id] || (out.by[id] = { points: 0, cards: 0, tasks: 0, none: 0 });
         b.cards++;
+        b.tasks += n;
         if (v == null) b.none++; else b.points += v;
       });
     });
@@ -83,6 +92,7 @@
   }
 
   function cardsWord(n) { return n + (n === 1 ? ' card' : ' cards'); }
+  function tasksWord(n) { return n + (n === 1 ? ' task' : ' tasks'); }
 
   // ---- Points of checklist items ----
   // A card with a checklist is estimated item by item: Teamload data "pts" on that card holds
@@ -173,6 +183,8 @@
     cardPoints: cardPoints,
     summarize: summarize,
     cardsWord: cardsWord,
+    tasksWord: tasksWord,
+    cardTasks: cardTasks,
     itemKey: itemKey,
     itemPoints: itemPoints,
     allItems: allItems,

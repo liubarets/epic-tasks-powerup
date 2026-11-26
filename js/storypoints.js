@@ -54,7 +54,7 @@
       t.get('board', 'shared', 'cfg', {}),
       t.board('id', 'members', 'customFields'),
       t.member('id', 'fullName', 'username', 'avatar', 'initials'),
-      t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems'),
+      t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems', 'badges'),
       t.lists('id', 'name'),
       t.get('member', 'private', 'spPerson'),
     ]).then(function (r) {
@@ -84,9 +84,9 @@
     return (data.person && personOf(data.person)) || null;
   }
 
-  function stats(id) { return data.sum.by[id] || { points: 0, cards: 0, none: 0 }; }
+  function stats(id) { return data.sum.by[id] || { points: 0, cards: 0, tasks: 0, none: 0 }; }
 
-  function subline(s) { return P.cardsWord(s.cards) + (s.none ? ' · ' + s.none + ' unestimated' : ''); }
+  function subline(s) { return P.tasksWord(s.tasks) + (s.none ? ' · ' + s.none + ' unestimated' : ''); }
 
   function render() {
     var cfg = data.cfg;
@@ -106,7 +106,7 @@
   function renderSum() {
     var p = current();
     // Nobody picked: the button invites to pick, the number is the whole list.
-    var s = p ? stats(p.id) : { points: data.sum.total, cards: data.sum.cards, none: data.sum.none };
+    var s = p ? stats(p.id) : { points: data.sum.total, cards: data.sum.cards, tasks: data.sum.tasks, none: data.sum.none };
     var who = p
       ? avatar(p, 'sp-av-28') + '<span class="sp-name">' + esc(p.fullName || p.username) + '</span>'
       : '<span class="sp-av sp-av-28 sp-av-pick">&#931;</span><span class="sp-name sp-name-pick">Choose a person</span>';
@@ -140,7 +140,7 @@
         (mode === 'pick' ? '' : '<button type="button" class="sp-back" data-action="back">‹ Back</button>') +
         '<div class="sp-total">' +
           '<span class="sp-sigma">&#931;</span>' +
-          '<span class="sp-total-text"><b>Total in ' + esc(data.listName) + '</b><span>' + esc(subline({ cards: tot.cards, none: tot.none })) + '</span></span>' +
+          '<span class="sp-total-text"><b>Total in ' + esc(data.listName) + '</b><span>' + esc(subline({ cards: tot.cards, tasks: tot.tasks, none: tot.none })) + '</span></span>' +
           '<span class="sp-total-num">' + BOLT.replace('width="12" height="12"', 'width="16" height="16"') + P.fmt(tot.total) + '</span>' +
         '</div>' +
         '<label class="sp-search">' + SEARCH + '<input type="text" id="q" placeholder="Find a person" aria-label="Find a person" value="' + esc(state.q) + '"></label>' +
