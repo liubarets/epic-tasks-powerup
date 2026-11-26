@@ -388,17 +388,18 @@
   // The "in progress" list: the board's list between the TO DO list and the first Done list
   // (preferring one named like "progress" / "doing"); null when the board has none.
   function progressListId(lists, cfg) {
+    // Found by the column's name only, never by its place on the board: moving columns around changes nothing.
+    // "In progress" wins over other names ("Doing", "WIP", "В роботі", "В процесі") if several are there.
+    // No such column: null (the status menus then offer only TO DO and DONE).
     var ls = lists || [], done = (cfg && cfg.doneListIds) || [], todo = cfg && cfg.todoListId;
-    // "TO DO SP<n>" columns (to the right of Done) are never "in progress".
-    var ok = function (l) { return l.id !== todo && done.indexOf(l.id) === -1 && sprintTodoNumber(l.name) === null; };
-    var named = function (l) { return /progress|doing|в робот|в процес/i.test(l.name || ''); };
-    var byName = ls.filter(function (l) { return ok(l) && named(l); })[0];
-    if (byName) return byName.id;
-    var ti = -1, di = ls.length;
-    ls.forEach(function (l, i) { if (l.id === todo || (ti === -1 && sprintTodoNumber(l.name) !== null)) ti = i; });
-    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
-    var pick = ti === -1 ? null : ls.slice(ti + 1, di).filter(ok)[0];
-    return pick ? pick.id : null;
+    // TO DO columns and Done lists are never "in progress", whatever they are called.
+    var ok = function (l) { return l.id !== todo && done.indexOf(l.id) === -1 && sprintTodoNumber(l.name) === null && !l.closed; };
+    var tests = [/in\s*-?\s*progress/i, /progress|doing|\bwip\b|[ву]\s+робот|[ву]\s+процес|викону|в\s+работе|в\s+процессе/i];
+    for (var i = 0; i < tests.length; i++) {
+      var hit = ls.filter(function (l) { return ok(l) && tests[i].test(l.name || ''); })[0];
+      if (hit) return hit.id;
+    }
+    return null;
   }
 
   // An item in a card with a checklist has its own status: DONE when ticked (or when the whole card is in a
