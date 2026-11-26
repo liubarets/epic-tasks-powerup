@@ -57,14 +57,16 @@
       t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems', 'badges'),
       t.lists('id', 'name'),
       t.get('member', 'private', 'spPerson'),
+      t.get('member', 'private', 'spList'),
     ]).then(function (r) {
       var cfg = r[0] || {}, board = r[1] || {}, me = r[2] || {};
       var field = P.findField(board.customFields, cfg);
-      var list = (r[4] || []).filter(function (l) { return l.id === cfg.todoListId; })[0];
+      // The same column as the panel: the newest sprint's TO DO (or the one the person picked there).
+      var list = window.EpicCore.panelColumn(r[4] || [], cfg, r[6]).col;
       data = {
-        cfg: cfg, me: me, members: board.members || [], field: field,
+        cfg: cfg, me: me, members: board.members || [], field: field, col: list,
         listName: list ? list.name : 'TO DO',
-        sum: P.summarize(r[3] || [], field && field.id, cfg.todoListId),
+        sum: P.summarize(r[3] || [], field && field.id, list && list.id),
         person: r[5],
       };
       render();
@@ -93,7 +95,7 @@
     var cfg = data.cfg;
     if (!cfg.sp || !cfg.sp.on) {
       root.innerHTML = '<p class="msg">Story points are turned off on this board. Turn them on in Teamload settings.</p>';
-    } else if (!cfg.todoListId) {
+    } else if (!data.col) {
       root.innerHTML = '<p class="msg">Choose the TO DO list in Teamload settings first.</p>';
     } else if (state.view === 'pick') {
       renderPicker();

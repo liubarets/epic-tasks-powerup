@@ -144,17 +144,20 @@
       t.lists('id', 'name'),
       t.get('member', 'private', 'spPerson'),
       EpicAuth.isAuthorized(t),
+      t.get('member', 'private', 'spList'),
     ]).then(function (r) {
       var cfg = r[0] || {}, board = r[1] || {}, cards = r[3] || [];
       var field = P.findField(board.customFields, cfg);
-      var list = (r[4] || []).filter(function (l) { return l.id === cfg.todoListId; })[0];
+      // The same column as the panel: the newest sprint's TO DO (or the one the person picked there).
+      var list = window.EpicCore.panelColumn(r[4] || [], cfg, r[7]).col;
+      var colId = list ? list.id : null;
       // Same order as in the list.
       var todo = cards.map(function (c, i) { return { c: c, i: i }; })
-        .filter(function (x) { return !x.c.closed && x.c.idList === cfg.todoListId; })
+        .filter(function (x) { return !x.c.closed && x.c.idList === colId; })
         .sort(function (a, b) { return ((a.c.pos || 0) - (b.c.pos || 0)) || (a.i - b.i); })
         .map(function (x) { return x.c; });
       ui.authed = !!r[6];
-      var next = { cfg: cfg, field: field, me: r[2] || {}, members: board.members || [], cards: cards, todo: todo,
+      var next = { cfg: cfg, col: colId, field: field, me: r[2] || {}, members: board.members || [], cards: cards, todo: todo,
         listName: list ? list.name : 'TO DO', checklists: {}, pts: {} };
       return loadChecklists(todo).then(function (cl) {
         next.checklists = cl[0];
@@ -176,7 +179,7 @@
     });
   }
 
-  function stats() { return P.summarize(data.cards, data.field && data.field.id, data.cfg.todoListId); }
+  function stats() { return P.summarize(data.cards, data.field && data.field.id, data.col); }
 
   function ddRows() {
     var sum = stats();
@@ -234,7 +237,7 @@
       root.innerHTML = '<p class="msg est-msg">Story points are turned off on this board. Turn them on in Teamload settings.</p>';
       return;
     }
-    if (!cfg.todoListId) {
+    if (!data.col) {
       root.innerHTML = '<p class="msg est-msg">Choose the TO DO list in Teamload settings first.</p>';
       return;
     }

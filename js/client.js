@@ -106,10 +106,13 @@
   function spCfg(t) {
     if (spCache && Date.now() - spAt < 3000) return spCache;
     spAt = Date.now();
-    spCache = Promise.all([t.get('board', 'shared', 'cfg', {}), t.board('customFields')]).then(function (r) {
+    spCache = Promise.all([t.get('board', 'shared', 'cfg', {}), t.board('customFields'), t.lists('id', 'name')]).then(function (r) {
       var cfg = r[0] || {}, sp = cfg.sp || {};
       var f = P.findField((r[1] || {}).customFields, cfg);
-      return { on: !!sp.on, migrate: !!sp.migrate && !!f, fieldId: f ? f.id : null, todoListId: cfg.todoListId };
+      // Every TO DO list: the one from settings and the sprints' "TO DO SP<n>" columns.
+      var todoIds = window.EpicCore.todoColumns(r[2] || [], cfg).map(function (c) { return c.id; });
+      if (cfg.todoListId && todoIds.indexOf(cfg.todoListId) === -1) todoIds.push(cfg.todoListId);
+      return { on: !!sp.on, migrate: !!sp.migrate && !!f, fieldId: f ? f.id : null, todoListId: cfg.todoListId, todoIds: todoIds };
     }).catch(function () { return { on: false }; });
     return spCache;
   }
@@ -218,7 +221,7 @@
             maybeSetField(t, card, c, items);
             var v = items !== undefined ? items : P.cardPoints(card, c.fieldId);
             if (v != null) return [{ text: P.fmt(v), icon: BOLT, color: 'blue' }];
-            return card.idList === c.todoListId ? [{ text: '?', icon: BOLT, color: 'yellow' }] : [];
+            return (c.todoIds || []).indexOf(card.idList) !== -1 ? [{ text: '?', icon: BOLT, color: 'yellow' }] : [];
           });
         });
       });
@@ -263,7 +266,7 @@
         // A task card made from an epic links back to it at the start of its description ("[Epic](trello.com/c/…) / Checklist").
         // That also covers a checklist card whose "kid" mark didn't get saved, after it leaves TO DO.
         var fromEpic = /^\[[^\]]*\]\(https:\/\/trello\.com\/c\//.test(card.desc || '');
-        var estimated = !!kid || fromEpic || card.idList === c.todoListId || !!(pts && Object.keys(pts).length);
+        var estimated = !!kid || fromEpic || (c.todoIds || []).indexOf(card.idList) !== -1 || !!(pts && Object.keys(pts).length);
         if (estimated && c.on) {
           return { title: 'STORY POINTS', icon: BOLT, content: { type: 'iframe', url: t.signUrl('./cardpoints.html'), height: 160 } };
         }

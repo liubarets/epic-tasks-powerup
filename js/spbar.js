@@ -53,22 +53,29 @@
       t.cards('id', 'name', 'idList', 'closed', 'members', 'customFieldItems', 'badges'),
       t.lists('id', 'name'),
       t.get('member', 'private', 'spPerson'),
+      t.get('member', 'private', 'spList'),
     ]).then(function (r) {
-      render(r[0] || {}, r[1] || {}, r[2] || [], r[3] || [], r[4]);
+      render(r[0] || {}, r[1] || {}, r[2] || [], r[3] || [], r[4], r[5]);
     }).catch(function () { /* keep the last numbers */ }).then(function () {
       loading = false;
       if (again) { again = false; load(); }
     });
   }
 
-  function render(cfg, board, cards, lists, pid) {
+  var shown = null;  // what the panel counts now, for the sprint column menu
+
+  function render(cfg, board, cards, lists, pid, saved) {
     var html;
-    if (!cfg.sp || !cfg.sp.on || !cfg.todoListId) {
+    // The column counted: the newest sprint's "TO DO SP<n>" (or one the person picked), else the TO DO list.
+    var pc = window.EpicCore.panelColumn(lists, cfg, saved);
+    if (!cfg.sp || !cfg.sp.on || !pc.col) {
+      shown = null;
       html = '<div class="spbar"><span class="spbar-msg">Turn on story points and choose the TO DO list in Teamload settings.</span></div>';
     } else {
       var field = P.findField(board.customFields, cfg);
-      var sum = P.summarize(cards, field && field.id, cfg.todoListId);
-      var list = lists.filter(function (l) { return l.id === cfg.todoListId; })[0];
+      var sum = P.summarize(cards, field && field.id, pc.col.id);
+      var list = pc.col;
+      shown = { pc: pc, cards: cards, fieldId: field && field.id, pid: pid };
       var person = pid === '_none' ? { id: '_none', fullName: 'No members' }
         : (board.members || []).filter(function (m) { return m.id === pid; })[0];
       var s = person ? (sum.by[person.id] || { points: 0, cards: 0, tasks: 0, none: 0 }) : { points: sum.total, cards: sum.cards, tasks: sum.tasks, none: sum.none };
@@ -77,7 +84,10 @@
         : '<span class="sp-av sp-av-24 sp-av-pick">&#931;</span><span class="spbar-name sp-name-pick">Choose a person</span>';
       html =
         '<div class="spbar">' +
-          '<span class="spbar-pill">' + esc(list ? list.name : 'TO DO') + '</span>' +
+          // The sprint column: a menu of all of them when there are several; blue for the newest one.
+          (pc.cols.length > 1
+            ? '<button type="button" class="spbar-pill' + (pc.col === pc.newest ? ' new' : ' old') + '" data-action="list" aria-haspopup="listbox">' + esc(list.name) + CHEV + '</button>'
+            : '<span class="spbar-pill">' + esc(list.name) + '</span>') +
           '<button type="button" class="spbar-person" data-action="pick" aria-haspopup="listbox">' + who + CHEV + '</button>' +
           '<span class="spbar-sep"></span>' +
           '<span class="spbar-num">' + P.fmt(s.points) + '</span>' +
@@ -101,9 +111,28 @@
     });
   }
 
+  // Trello's drop-down list of the sprint columns, newest first, with the points of the picked person (or everyone).
+  function listMenu(e) {
+    if (!shown) return null;
+    var pc = shown.pc;
+    return t.popup({ title: 'Sprint column', mouseEvent: e, items: pc.cols.slice().reverse().map(function (c) {
+      var s = P.summarize(shown.cards, shown.fieldId, c.id);
+      var v = shown.pid ? (s.by[shown.pid] || { points: 0 }).points : s.total;
+      return { text: (c.id === pc.col.id ? '✓ ' : '') + c.name + '  ·  ⚡ ' + P.fmt(v), callback: function (tt) {
+        tt.closePopup();
+        // Remembered with the newest column of the moment: when a newer sprint appears, the panel goes back to it.
+        Promise.resolve(t.set('member', 'private', 'spList', { id: c.id, newest: pc.newest.id })).then(load);
+      } };
+    }) });
+  }
+
   root.addEventListener('click', function (e) {
     var b = e.target.closest('[data-action]');
     if (!b) return;
+    if (b.getAttribute('data-action') === 'list') {
+      listMenu(e);
+      return;
+    }
     if (b.getAttribute('data-action') === 'estimate') {
       // Big window in the middle of the screen: every card of the person in one row, with quick values.
       t.modal({ url: './estimate.html', title: 'Estimate story points', height: 680, callback: function () { load(); } });
