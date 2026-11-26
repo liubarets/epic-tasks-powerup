@@ -252,3 +252,30 @@ test('priority in cards made from an epic: item part, checklist part, descriptio
   assert.equal(C.descChecklistPriority('my own notes / 🟢 x'), null);
   assert.equal(C.withDescChecklistPriority('my own notes / 🟢 x', 1), 'my own notes / 🟢 x');
 });
+
+test('sprints: list names, TO DO SP columns, order across the new year', () => {
+  assert.equal(C.sprintNumber('SPRINT 48'), 48);
+  assert.equal(C.sprintNumber('Спрінт 3'), 3);
+  assert.equal(C.sprintNumber('TO DO SP48'), null, 'a TO DO column is not a sprint list');
+  assert.equal(C.sprintNumber('TO DO'), null);
+  assert.equal(C.sprintTodoNumber('TO DO SP48'), 48);
+  assert.equal(C.sprintTodoNumber('To do sp 7'), 7);
+  assert.equal(C.sprintTodoNumber('TODO SP12'), 12);
+  assert.equal(C.sprintTodoNumber('TO DO'), null);
+  assert.equal(C.sprintTodoName(49), 'TO DO SP49');
+  assert.deepEqual(C.sprintOrder([48, 47]), [47, 48]);
+  assert.deepEqual(C.sprintOrder([1, 52, 51]), [51, 52, 1], 'new year: 1 comes after 52');
+  assert.deepEqual(C.sprintOrder([2, 1]), [1, 2]);
+  const lists = [{ id: 's47', name: 'SPRINT 47' }, { id: 's48', name: 'SPRINT 48' }, { id: 't', name: 'TO DO' }, { id: 'p', name: 'IN PROGRESS' },
+    { id: 'd', name: 'DONE' }, { id: 't48', name: 'TO DO SP48' }, { id: 't47', name: 'TO DO SP47' }];
+  const cfg = { todoListId: 't', doneListIds: ['d'] };
+  assert.deepEqual(C.todoColumns(lists, cfg).map((c) => c.id), ['t47', 't48']);
+  assert.deepEqual(C.todoColumns(lists.filter((l) => !/SP/.test(l.name)), cfg).map((c) => c.id), ['t'], 'no SP columns: the TO DO list from settings');
+  assert.ok(C.isTodoList(lists, cfg, 't48') && C.isTodoList(lists, cfg, 't') && !C.isTodoList(lists, cfg, 'p'));
+  assert.equal(C.panelColumn(lists, cfg, null).col.id, 't48', 'the newest sprint by default');
+  assert.equal(C.panelColumn(lists, cfg, { id: 't47', newest: 't48' }).col.id, 't47', 'an older one, picked while 48 was the newest');
+  assert.equal(C.panelColumn(lists.concat([{ id: 't49', name: 'TO DO SP49' }]), cfg, { id: 't47', newest: 't48' }).col.id, 't49', 'a newer sprint appeared: back to the newest');
+  assert.equal(C.progressListId(lists, cfg), 'p');
+  const unnamed = [{ id: 't', name: 'TO DO' }, { id: 'r', name: 'Review' }, { id: 'd', name: 'DONE' }, { id: 't48', name: 'TO DO SP48' }];
+  assert.equal(C.progressListId(unnamed, cfg), 'r', 'a TO DO SP column right of Done is never in progress');
+});

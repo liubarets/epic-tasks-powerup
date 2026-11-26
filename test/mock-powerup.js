@@ -194,6 +194,25 @@
       if (S.renderOnRest && renderFn) setTimeout(renderFn, 0);
       return json(clone(card));
     }
+    // board lists (S.lists, or the default three), with positions; lists can be created and archived
+    if (method === 'GET' && (m = path.match(/^\/boards\/([^/]+)\/lists$/))) {
+      var all = S.lists || lists;
+      return json(clone(all.filter(function (l) { return !l.closed; }).map(function (l, i) { return { id: l.id, name: l.name, pos: l.pos || (i + 1) * 1000, closed: false }; })));
+    }
+    if (method === 'POST' && path === '/lists') {
+      S.lists = S.lists || lists.map(function (l, i) { return Object.assign({ pos: (i + 1) * 1000 }, l); });
+      S.lists.forEach(function (l, i) { if (!l.pos) l.pos = (i + 1) * 1000; });
+      var lp = q.pos === 'bottom' || !q.pos ? Math.max.apply(null, S.lists.map(function (l) { return l.pos; })) + 1000 : parseFloat(q.pos);
+      var nl = { id: id('list'), name: q.name, pos: lp, closed: false };
+      S.lists.push(nl);
+      S.lists.sort(function (a, b) { return a.pos - b.pos; });
+      S.listsMade = (S.listsMade || 0) + 1;
+      return json(clone(nl));
+    }
+    if (method === 'PUT' && (m = path.match(/^\/lists\/([^/]+)\/closed$/))) {
+      (S.lists || lists).forEach(function (l) { if (l.id === m[1]) l.closed = true; });
+      return json({ id: m[1], closed: true });
+    }
     if (method === 'PUT' && (m = path.match(/^\/checklists\/([^/]+)$/))) {
       var hcl = S.checklists.filter(function (x) { return x.id === m[1]; })[0];
       Object.values(S.cards).forEach(function (c) { (c.checklists || []).forEach(function (x) { if (x.id === m[1]) hcl = x; }); });
@@ -238,7 +257,7 @@
       }));
     },
     member: function () { return pick(S.me || ME); },
-    lists: function () { return pick(lists); },
+    lists: function () { return pick((S.lists || lists).filter(function (l) { return !l.closed; }).map(function (l) { return { id: l.id, name: l.name }; })); },
     // "card" is the card in context: the epic's data lives under S.plugin.card (as before), any other card's under its id
     get: function (scope, vis, k, def) { scope = scopeOf(scope); var v = (S.plugin[scope] || {})[k]; return Promise.resolve(v === undefined ? def : clone(v)); },
     set: function (scope, vis, k, v) {
