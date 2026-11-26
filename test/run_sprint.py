@@ -56,6 +56,8 @@ with sync_playwright() as p:
     S = lambda: pg.evaluate("window.__state")
     check(pg.locator(".notice").count() == 0, "no 'choose the TO DO list' notice for a sprint epic")
     check(not any(l["name"] == "TO DO SP48" for l in S()["lists"]), "no TO DO SP48 column before any card is added")
+    adds = pg.locator(".chip.add").all_inner_texts()
+    check(adds and all("＋ TO DO SP48" in x for x in adds), f"add chips name the sprint column before it exists: {adds[:2]}")
     pg.locator(".my-btn").first.click()
     pg.locator(".my-menu .my-row").first.locator("button", has_text="Checklist").click()
     pg.wait_for_function("document.querySelectorAll('.my-menu .my-ok').length === 1", timeout=10000)
