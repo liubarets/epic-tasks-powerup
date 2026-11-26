@@ -410,6 +410,60 @@
   // Adds items to the person's checklist card for this checklist, creating the card if they have none
   // (or theirs is done, archived or left). job = { checklist, memberId, items }. Resolves with the card.
   // Items go one by one, so they keep the epic's order; what was added is recorded even if a later step fails.
+  // ---- Status of an item × person, changed from the epic ----
+
+  // The "in progress" list: the board's list between the TO DO list and the first Done list
+  // (preferring one named like "progress" / "doing"); null when the board has none.
+  function progressListId(d) {
+    var ls = d.lists || [], done = d.cfg.doneListIds || [];
+    var ti = -1, di = ls.length;
+    ls.forEach(function (l, i) { if (l.id === d.cfg.todoListId) ti = i; });
+    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
+    var between = ti === -1 ? [] : ls.slice(ti + 1, di).filter(function (l) { return done.indexOf(l.id) === -1; });
+    var named = function (l) { return /progress|doing|в робот|в процес/i.test(l.name || ''); };
+    var pick = between.filter(named)[0] || between[0] || ls.filter(function (l) { return named(l) && l.id !== d.cfg.todoListId && done.indexOf(l.id) === -1; })[0];
+    return pick ? pick.id : null;
+  }
+
+  // 'todo' | 'prog' | 'done' | 'other' for an item × person that has a card.
+  function statusOf(d, info) {
+    if (!info) return null;
+    var c = info.card, done = d.cfg.doneListIds || [];
+    if (info.kind === 'kid' ? info.item.state === 'complete' : done.indexOf(c.idList) !== -1) return 'done';
+    if (c.idList === d.cfg.todoListId) return 'todo';
+    if (c.idList === progressListId(d)) return 'prog';
+    return 'other';
+  }
+
+  function moveCard(t, d, c, listId) {
+    if (!listId || c.idList === listId) return Promise.resolve();
+    return api(t, 'PUT', '/cards/' + c.id, { idList: listId, pos: 'top' }).then(function () { c.idList = listId; });
+  }
+
+  // Anyone on the board can change the status from the epic:
+  // - a separate card moves to TO DO / the in-progress list / the first Done list;
+  // - an item in a person's checklist card: TO DO / IN PROGRESS untick it (IN PROGRESS also moves the card
+  //   out of TO DO, and both bring a card back from Done); DONE ticks it, and when every item of that card
+  //   is ticked the card moves to Done.
+  function setStatus(t, d, itemId, memberId, status) {
+    var info = linkInfo(d, itemId, memberId);
+    if (!info) return Promise.resolve();
+    var done = d.cfg.doneListIds || [], prog = progressListId(d), c = info.card;
+    var target = { todo: d.cfg.todoListId, prog: prog, done: done[0] }[status];
+    if (info.kind === 'card') return moveCard(t, d, c, target);
+    var it = info.item, want = status === 'done' ? 'complete' : 'incomplete';
+    var tick = it.state === want ? Promise.resolve()
+      : api(t, 'PUT', '/cards/' + c.id + '/checkItem/' + it.id, { state: want }).then(function () { it.state = want; });
+    return tick.then(function () {
+      var inDone = done.indexOf(c.idList) !== -1;
+      if (status === 'todo') return inDone ? moveCard(t, d, c, d.cfg.todoListId) : null;
+      if (status === 'prog') return (inDone || c.idList === d.cfg.todoListId) ? moveCard(t, d, c, prog) : null;
+      var all = [];
+      (c.checklists || []).forEach(function (cl) { all = all.concat(cl.checkItems || []); });
+      return all.length && all.every(function (x) { return x.state === 'complete'; }) ? moveCard(t, d, c, done[0]) : null;
+    });
+  }
+
   var recentKid = {};  // groupKey -> { s: card shortLink, i: { itemKey: 1 } } — items added from this page
 
   function addToKid(t, d, job, pos) {
@@ -692,6 +746,9 @@
     groupCard: groupCard,
     findItem: findItem,
     pendingInChecklist: pendingInChecklist,
+    progressListId: progressListId,
+    statusOf: statusOf,
+    setStatus: setStatus,
     myPending: myPending,
     addMyChecklistCard: addMyChecklistCard,
     addMySeparateCards: addMySeparateCards,
@@ -702,6 +759,9 @@
     addMany: addMany,
     addAllOptions: addAllOptions,
     pendingInChecklist: pendingInChecklist,
+    progressListId: progressListId,
+    statusOf: statusOf,
+    setStatus: setStatus,
     pendingPeople: pendingPeople,
     addChecklistCards: addChecklistCards,
     addSeparateCards: addSeparateCards,

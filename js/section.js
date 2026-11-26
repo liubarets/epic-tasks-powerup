@@ -122,23 +122,37 @@
     var busyKey = item.id + ':' + a.id;
     if (ui.busy[busyKey]) return '<span class="' + cls + ' busy">' + who + ' · …</span>';
     var info = Todo.linkInfo(data, item.id, a.id);
-    if (info && info.kind === 'kid') {
-      // The item sits in the person's checklist card: "☰ TO DO" (its list), or "☰ ✓" once ticked there.
-      var ticked = info.item.state === 'complete';
-      return '<button class="' + cls + (ticked ? ' done' : ' linked') + ' kid" data-action="open" data-card="' + esc(info.card.id) +
-        '" title="In ' + (isMe ? 'your' : '@' + esc(a.username) + '’s') + ' checklist card. Open card">' + who +
-        ' <span class="st">☰ ' + (ticked ? '✓' : esc(data.listName[info.card.idList] || 'TO DO')) + '</span></button>';
-    }
-    var c = info && info.card;
-    if (c) {
-      var done = Core.isCardDone(c, data.cfg.doneListIds);
-      var where = '✓ ' + (done ? 'DONE' : esc(data.listName[c.idList] || 'TO DO'));
-      return '<button class="' + cls + (done ? ' done' : ' linked') + '" data-action="open" data-card="' + esc(c.id) +
-        '" title="Open card">' + who + ' <span class="st">' + where + '</span></button>';
+    if (info) {
+      // The person has a card: the chip shows its status; a click opens a menu to change it (anyone can).
+      var st = Todo.statusOf(data, info);
+      var kid = info.kind === 'kid';
+      var label = st === 'done' ? (kid ? '✓' : 'DONE') : esc(data.listName[info.card.idList] || 'TO DO');
+      var open = ui.status === busyKey;
+      return '<button class="' + cls + (st === 'done' ? ' done' : ' linked') + (kid ? ' kid' : '') + '" data-action="status" data-item="' + esc(item.id) +
+        '" data-member="' + esc(a.id) + '" aria-expanded="' + open + '" title="Change status">' + who +
+        ' <span class="st">' + (kid ? '☰ ' : '✓ ') + label + ' ▾</span></button>';
     }
     if (item.state === 'complete') return '<span class="' + cls + '">' + who + '</span>';
     return '<button class="' + cls + ' add" data-action="todo" data-item="' + esc(item.id) + '" data-member="' + esc(a.id) +
       '" title="Create a TO DO card for @' + esc(a.username) + '">' + who + ' <span class="st">＋ TO DO</span></button>';
+  }
+
+  function statusMenuHtml(item, people) {
+    if (!ui.status || ui.status.split(':')[0] !== item.id) return '';
+    var mid = ui.status.split(':')[1];
+    var info = Todo.linkInfo(data, item.id, mid);
+    if (!info) return '';
+    var cur = Todo.statusOf(data, info), prog = Todo.progressListId(data);
+    var opt = function (k, text) {
+      return '<button role="menuitem" class="st-opt' + (cur === k ? ' on' : '') + '" data-action="setst" data-st="' + k + '" data-item="' + esc(item.id) +
+        '" data-member="' + esc(mid) + '">' + (cur === k ? '✓ ' : '') + text + '</button>';
+    };
+    var m = people.filter(function (p) { return p.id === mid; })[0] || {};
+    return '<div class="st-menu" role="menu"><span class="st-who">@' + esc(m.username || '') + '</span>' +
+      opt('todo', esc(data.listName[data.cfg.todoListId] || 'TO DO')) +
+      (prog ? opt('prog', esc(data.listName[prog] || 'IN PROGRESS')) : '') +
+      opt('done', 'DONE') +
+      '<button class="st-open" data-action="open" data-card="' + esc(info.card.id) + '">Open card ↗</button></div>';
   }
 
   function itemHtml(item) {
@@ -167,7 +181,7 @@
     return '<li class="item' + (done ? ' done' : '') + '">' +
       '<select class="prio" data-action="prio" data-item="' + esc(item.id) + '" title="Priority">' + opts + '</select>' +
       '<div class="body"><div class="title">' + esc(Core.cleanTitle(item.name)) + due + '</div>' +
-      '<div class="chips">' + chips + '</div></div></li>';
+      '<div class="chips">' + chips + '</div>' + statusMenuHtml(item, people) + '</div></li>';
   }
 
   // "＋ Cards (n) ▾": open items of this checklist without a card yet, for anyone tagged in them.
@@ -175,14 +189,19 @@
   function myCardsHtml(cl) {
     if (ui.busy['my:' + cl.id]) return '<span class="my-busy">Creating cards…</span>';
     var n = Todo.pendingInChecklist(data, cl).length;
-    if (!n) return '';
+    if (!n) return '<button class="my-btn off" disabled title="Every open item already has a card">＋ Cards</button>';
     return '<button class="my-btn" data-action="mymenu" data-cl="' + esc(cl.id) + '" aria-expanded="' + (ui.menu === cl.id) + '"' +
       ' title="Create TO DO cards for the open items of this checklist">＋ Cards (' + n + ') ▾</button>';
   }
 
   function avatarHtml(m) {
-    var ini = ((m.fullName || m.username || '?').split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2)).toUpperCase();
-    if (m.avatarUrl) return '<img class="my-av" src="' + esc(m.avatarUrl + '/30.png') + '" alt="">';
+    var ini = m.initials ? m.initials.slice(0, 2).toUpperCase()
+      : ((m.fullName || m.username || '?').trim().split(/\s+/).map(function (w) { return w[0]; }).filter(Boolean).slice(0, 2).join('')).toUpperCase();
+    var a = m.avatar || m.avatarUrl;
+    if (a && /^https:\/\//.test(a)) {
+      var src = /\.(png|jpe?g|gif|webp)(\?|$)/i.test(a) ? a : a.replace(/\/$/, '') + '/50.png';
+      return '<img class="my-av" src="' + esc(src) + '" alt="' + esc(ini) + '">';
+    }
     return '<span class="my-av">' + esc(ini) + '</span>';
   }
 
@@ -235,9 +254,6 @@
       cl.checkItems.forEach(function (i) { if (i.state !== 'complete' && Core.parsePriority(i.name) === 1) openP1++; });
     });
     var html = '<div class="toolbar">' +
-      '<label class="toggle"><input type="checkbox" data-action="mine"' + (ui.mine ? ' checked' : '') + '> Only mine</label>' +
-      '<label class="toggle"><input type="checkbox" data-action="hideDone"' + (ui.hideDone ? ' checked' : '') + '> Hide completed</label>' +
-      (openP1 ? '<span class="pill p1">🔴 open P1: ' + openP1 + '</span>' : '') +
       '<span class="spacer"></span>' +
       '<button class="icon" data-action="refresh" title="Refresh">⟳</button>' +
       '<button class="icon" data-action="settings" title="Settings">⚙</button></div>';
@@ -309,6 +325,7 @@
     } else if (a === 'settings') {
       t.popup({ title: 'Teamload — settings', url: './settings.html', height: 420, mouseEvent: e });
     } else if (a === 'open') {
+      if (ui.status) { ui.status = null; render(); }
       t.showCard(el.getAttribute('data-card'));
     } else if (a === 'todo') {
       var key = el.getAttribute('data-item') + ':' + el.getAttribute('data-member');
@@ -316,6 +333,16 @@
       ui.busy[key] = 1; render();
       run(Todo.addToTodo(t, data, el.getAttribute('data-item'), el.getAttribute('data-member')))
         .then(function () { delete ui.busy[key]; render(); });
+    } else if (a === 'status') {
+      var sk = el.getAttribute('data-item') + ':' + el.getAttribute('data-member');
+      ui.status = ui.status === sk ? null : sk;
+      render();
+    } else if (a === 'setst') {
+      var ik = el.getAttribute('data-item'), mk = el.getAttribute('data-member'), bkey = ik + ':' + mk;
+      if (ui.busy[bkey]) return;
+      ui.status = null; ui.busy[bkey] = 1; render();
+      var free2 = function () { delete ui.busy[bkey]; };
+      run(Todo.setStatus(t, data, ik, mk, el.getAttribute('data-st')).then(free2, function (err) { free2(); throw err; })).then(render);
     } else if (a === 'assign') {
       var ak = el.getAttribute('data-item') + ':' + data.me.id;
       if (ui.busy[ak]) return;
@@ -341,9 +368,10 @@
   // A click outside the "My cards" menu closes it.
   document.addEventListener('click', function (e) {
     if (ui.menu && !e.target.closest('.my-menu, .my-btn')) { ui.menu = null; render(); }
+    if (ui.status && !e.target.closest('.st-menu, [data-action=status]')) { ui.status = null; render(); }
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && ui.menu) { ui.menu = null; render(); }
+    if (e.key === 'Escape' && (ui.menu || ui.status)) { ui.menu = null; ui.status = null; render(); }
   });
 
   root.addEventListener('change', function (e) {
