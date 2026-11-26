@@ -144,13 +144,27 @@ with sync_playwright() as p:
     page.locator("select.cl-prio").first.select_option("1")
     page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / 🔴 Spring merch 24.11'", timeout=5000)
     check(page.evaluate("window.__state.checklists[0].name") == "🔴 Spring merch 24.11", "checklist priority: epic checklist + my card name")
+    page.wait_for_function(f"window.__cardById('{kid['id']}').checklists[0].name === '🔴 Spring merch 24.11'", timeout=5000)
+    kd = page.evaluate(f"window.__cardById('{kid['id']}').desc")
+    check(kd.startswith("[PRODUCT LAUNCHES & UPDATES](https://trello.com/c/EPIC0001") and kd.endswith(" / 🔴 Spring merch 24.11"),
+          f"…and the checklist inside my card and the description line: {kd}")
+    sep_names = [c["name"] for c in S()["cards"].values() if "— " in c["name"] and "Spring merch" in c["name"] and c["idList"] != "L_done"]
+    check(sep_names and all("— 🔴 Spring merch 24.11" in n for n in sep_names), f"separate cards of this checklist: 'Item — 🔴 Checklist': {sep_names}")
     page.evaluate(f"window.__cardById('{kid['id']}').name = 'PRODUCT LAUNCHES & UPDATES / 🔴 Spring merch (renamed)'")
     refresh()
     page.locator("select.cl-prio").first.select_option("3")
     page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / 🟢 Spring merch (renamed)'", timeout=5000)
     check(True, "checklist priority changed again: only the emoji in the renamed card changes")
     page.locator("select.cl-prio").first.select_option("0")
-    page.wait_for_timeout(500)
+    page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / Spring merch (renamed)' && window.__cardById('{kid['id']}').checklists[0].name === 'Spring merch 24.11'", timeout=5000)
+    check(True, "priority removed in the epic: removed from my card's name and its checklist too")
+    # changed in Trello itself (checklist renamed): reaches the cards on the next opening of the epic
+    page.evaluate("window.__state.checklists[0].name = '🟠 Spring merch 24.11'")
+    refresh()
+    page.wait_for_function(f"window.__cardById('{kid['id']}').checklists[0].name === '🟠 Spring merch 24.11' && window.__cardById('{kid['id']}').desc.endsWith('/ 🟠 Spring merch 24.11')", timeout=5000)
+    check(True, "checklist priority changed in Trello: card name, checklist and description follow on the next opening")
+    page.evaluate("window.__state.checklists[0].name = 'Spring merch 24.11'")
+    refresh()
 
     # ticks: in my card -> epic; untick in my card -> epic reopens
     k0 = kid["checklists"][0]["checkItems"][0]["id"]

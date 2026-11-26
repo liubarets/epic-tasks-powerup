@@ -236,3 +236,19 @@ test('status plan: one item in progress moves the card, the others keep their st
   p = C.statusPlan(Object.assign({ listId: 'D', items: [{ id: 'a', state: 'complete' }], itemId: 'a', status: 'prog' }, base));
   assert.equal(p.moveTo, 'P');
 });
+
+test('priority in cards made from an epic: item part, checklist part, description line', () => {
+  assert.equal(C.withTodoCardItemPriority('New task 1 — 🟢 GUNIA merch', 1), '🔴 New task 1 — 🟢 GUNIA merch', "the checklist's emoji is not the item's");
+  assert.equal(C.todoCardItemPriority('New task 1 — 🟢 GUNIA merch'), 0);
+  assert.equal(C.withTodoCardItemPriority('🔴 New task (edited) — 🟢 GUNIA', 0), 'New task (edited) — 🟢 GUNIA');
+  assert.equal(C.withTodoCardChecklistPriority('🔴 New task — 🟢 GUNIA merch', 2), '🔴 New task — 🟠 GUNIA merch');
+  assert.equal(C.withTodoCardChecklistPriority('🔴 New task — GUNIA merch', 1), '🔴 New task — 🔴 GUNIA merch');
+  assert.equal(C.todoCardChecklistPriority('Renamed card'), null);
+  assert.equal(C.withTodoCardChecklistPriority('Renamed card', 1), 'Renamed card');
+  const d = '[TEST EPIC](https://trello.com/c/69gU2eQC/191-test-epic) / 🟢 GUNIA merch 24.11\nnotes / more';
+  assert.equal(C.descChecklistPriority(d), 3);
+  assert.equal(C.withDescChecklistPriority(d, 1), '[TEST EPIC](https://trello.com/c/69gU2eQC/191-test-epic) / 🔴 GUNIA merch 24.11\nnotes / more');
+  assert.equal(C.withDescChecklistPriority(d, 0), '[TEST EPIC](https://trello.com/c/69gU2eQC/191-test-epic) / GUNIA merch 24.11\nnotes / more');
+  assert.equal(C.descChecklistPriority('my own notes / 🟢 x'), null);
+  assert.equal(C.withDescChecklistPriority('my own notes / 🟢 x', 1), 'my own notes / 🟢 x');
+});
