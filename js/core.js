@@ -8,13 +8,14 @@
     { level: 3, emoji: '🟢', short: 'P3', title: 'Can wait' },
     { level: 4, emoji: '⚪', short: 'P4', title: 'Low priority' },
     // Next sprint: sorted to the very bottom, and "＋ Cards" / "＋ All cards" skip such items (its chip still adds one).
-    { level: 5, emoji: '⏭️', short: 'NS', title: 'Next sprint' },
+    // (⏭ was its emoji for a few minutes on 27.11: still read as NS, and replaced by ↪️ on the next change.)
+    { level: 5, emoji: '↪️', short: 'NS', title: 'Next sprint', also: ['⏭'] },
   ];
   var NEXT_SPRINT = 5;
   // The priority emoji can stand anywhere in a name (people edit titles, e.g. "[5] 🟢 Video"),
   // so it is looked up and replaced where it is. The first one counts.
-  // ⚪ and ⏭ may come with or without the emoji variation selector (U+FE0F): both count, and it is replaced too.
-  var PRIO_RE = /(🔴|🟠|🟢|⚪|⏭)\ufe0f?/u;
+  // ⚪ and ↪ may come with or without the emoji variation selector (U+FE0F): both count, and it is replaced too.
+  var PRIO_RE = /(🔴|🟠|🟢|⚪|↪|⏭)\ufe0f?/u;
   // @username: Trello usernames = letters, digits, underscore. Must follow start/space/bracket
   // so e-mails like a@b.com are not treated as mentions.
   var MENTION_RE = /(^|[\s(,;])@([A-Za-z0-9_]{2,})/g;
@@ -27,7 +28,10 @@
   function parsePriority(name) {
     var m = PRIO_RE.exec(String(name || ''));
     if (!m) return 0;
-    for (var i = 0; i < PRIORITIES.length; i++) if (PRIORITIES[i].emoji.replace(/\ufe0f/g, '') === m[1]) return PRIORITIES[i].level;
+    for (var i = 0; i < PRIORITIES.length; i++) {
+      var p = PRIORITIES[i];
+      if (p.emoji.replace(/\ufe0f/g, '') === m[1] || (p.also || []).indexOf(m[1]) !== -1) return p.level;
+    }
     return 0;
   }
 

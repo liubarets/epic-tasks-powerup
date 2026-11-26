@@ -219,7 +219,7 @@
     var clNext = Core.parsePriority(cl.name) === Core.NEXT_SPRINT;
     cl.checkItems.forEach(function (it) {
       if (it.state === 'complete') return;
-      // ⏭️ NS (next sprint), on the item or on its checklist (unless the item has its own priority): not now.
+      // ↪️ NS (next sprint), on the item or on its checklist (unless the item has its own priority): not now.
       var own = Core.parsePriority(it.name);
       if (own === Core.NEXT_SPRINT || (!own && clNext)) return;
       Core.allAssignees(it, d.board.members, d.alive).forEach(function (a) {
