@@ -77,6 +77,11 @@ with sync_playwright() as p:
     st = S()
     sep = [c for c in st["cards"].values() if c["name"].endswith("— Spring merch 24.11") and c["idList"] == col[0]["id"]]
     check(len(sep) >= 2 and st.get("listsMade") == 1, f"separate cards in the same column, no second one: {len(sep)} cards, {st.get('listsMade')} made")
+    pg.keyboard.press("Escape")
+    pg.click("button[data-action=refresh]")
+    pg.wait_for_timeout(900)
+    lc = [x.replace("\n", " ") for x in pg.locator(".chip.linked:not(.kid)").all_inner_texts()]
+    check(sum("✓ TO DO SP48" in x for x in lc) >= 2 and not any(x.endswith("✓ TO DO ▾") for x in lc), f"separate cards' chips name the column after a reload: {lc}")
     # status from the epic: TO DO → In progress → back to TO DO goes to the card's own column
     pg.keyboard.press("Escape")
     pg.locator(".chip.kid").first.click()
