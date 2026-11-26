@@ -197,17 +197,9 @@ with sync_playwright() as p:
     caps = cp.evaluate("Object.keys(window.__caps || {})")
     check(set(caps) == {"card-back-section", "show-settings", "authorization-status", "show-authorization", "board-buttons", "card-badges", "card-detail-badges"}, f"capabilities: {caps}")
 
-    # "＋ Add all to TO DO" header action opens the menu popup right away (no awaiting data first)
-    r = cp.evaluate("""() => {
-      const t = TrelloPowerUp.iframe();
-      return window.__caps['card-back-section'](t).then(sec => {
-        const before = window.__state.popups.length;
-        sec.action.callback(t);                          // synchronous: the popup call must happen in the click
-        return { title: sec.title, text: sec.action.text, opened: window.__state.popups.slice(before) };
-      });
-    }""")
-    check(r["title"] == "TASKS" and r["text"] == "＋ Add all to TO DO", f"header: {r['title']} / {r['text']}")
-    check(r["opened"] == ["./addall.html"], f"button opens the menu popup immediately: {r['opened']}")
+    # "＋ Add all to TO DO" was removed from the TASKS header: the "Everyone" row of "＋ Cards" replaces it
+    r = cp.evaluate("""() => window.__caps['card-back-section'](TrelloPowerUp.iframe()).then(sec => ({ title: sec.title, action: !!sec.action }))""")
+    check(r["title"] == "TASKS" and not r["action"], f"TASKS header has no 'Add all' button: {r}")
 
     def open_menu(patch=None, token=None):
         mp = ctx.new_page()
@@ -251,37 +243,7 @@ with sync_playwright() as p:
     check("Choose the TO DO list" in mp.inner_text(".msg"), "no TO DO list configured -> hint")
     mp.close()
 
-    # background job: the connector creates the cards, the popup only shows progress; closing it doesn't stop the job
-    def click_header_button():
-        return cp.evaluate("""() => {
-          const t = TrelloPowerUp.iframe();
-          return window.__caps['card-back-section'](t).then(sec => { sec.action.callback(t); return window.__lastPopup.args.token; });
-        }""")
-    cp.evaluate("window.__postDelay = 900")
-    tok = click_header_button()
-    mp = open_menu(token=tok)
-    menu = [x.strip() for x in mp.locator(".menu button").all_inner_texts()]
-    check(menu == ["All tasks (10)", "Spring merch 24.11 (6)", "Retail SDK - 26.11 (4)"], f"background menu: {menu}")
-    mp.locator(".menu button", has_text="All tasks").click()
-    mp.wait_for_function("document.querySelector('.progress-count') && /^[1-9]\\d*\\/10$/.test(document.querySelector('.progress-count').textContent)")
-    first = mp.inner_text(".progress-count")
-    mp.screenshot(path=str(OUT / "5-progress.png"))
-    hint = mp.inner_text(".progress")
-    mp.close()  # the user closes the popup half-way
-    check("keep being added" in hint, f"popup says the job continues in the background: {hint!r}")
-    tok2 = click_header_button()
-    mp2 = open_menu(token=tok2)
-    mp2.wait_for_selector(".progress-count")
-    second = mp2.inner_text(".progress-count")
-    check(mp2.locator(".menu").count() == 0, f"reopened popup shows the running job ({first} -> {second}), not the menu")
-    cp.wait_for_function("Object.keys(window.__state.cards).length === 2 + 10", timeout=20000)
-    mp2.wait_for_function("document.querySelector('.msg') && document.querySelector('.msg').textContent.indexOf('Created 10') !== -1", timeout=5000)
-    st = cp.evaluate("window.__state")
-    check(len(st["cards"]) == 12 and len(st["plugin"]["card"]["links"]) == 12, "all 10 cards created and linked although the first popup was closed")
-    check(st["alerts"][-1] == "✓ Created 10 TO DO cards", f"connector alert: {st['alerts'][-1:]}")
-    mp2.wait_for_function("window.__state.closed === 1", timeout=5000)
-    check(True, "popup closes itself when the job is done")
-    mp2.close()
+    # (the "Add all" background job is no longer reachable from the UI: the "Everyone" row of "＋ Cards" replaced it)
 
     # priority change is finished by the connector even if the epic is closed right after the click
     secp = ctx.new_page()

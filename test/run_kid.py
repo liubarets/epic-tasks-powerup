@@ -66,13 +66,16 @@ with sync_playwright() as p:
         page.click("button[data-action=refresh]")
         page.wait_for_timeout(700)
     btns = page.locator(".my-btn").all_inner_texts()
-    check(btns == ["＋ My cards (2) ▾", "＋ My cards (3) ▾"], f"'My cards' counts only my open items without a card: {btns}")
+    check(btns == ["＋ Cards (6) ▾", "＋ Cards (4) ▾"], f"'Cards' counts all open items × people without a card: {btns}")
     page.locator(".my-btn").first.click()
     menu = page.locator(".my-menu").inner_text()
-    check("Your 2 items in “Spring merch 24.11”" in menu and "One card with a checklist" in menu and "A card for each item" in menu,
-          f"menu: {menu!r}")
+    names = page.locator(".my-menu .my-name").all_inner_texts()
+    counts = page.locator(".my-menu .my-n").all_inner_texts()
+    check(names[0] == "Me" and names[-1] == "Everyone" and len(names) == 5 and counts[0] == "2" and counts[-1] == "6",
+          f"menu: a row per tagged person (me first) + Everyone: {names} {counts}")
+    check("leralera" not in menu and "ninanina" not in menu, "people not tagged in this checklist are not listed")
     page.screenshot(path=str(OUT / "kid-1-menu.png"), full_page=True)
-    page.locator(".my-menu button", has_text="One card with a checklist").click()
+    page.locator(".my-row").first.locator("button", has_text="Checklist").click()
     page.wait_for_function("Object.values(window.__state.cards).some(c => c.name.indexOf(' / Spring merch') !== -1)")
     page.wait_for_selector(".chip.kid")
     page.wait_for_timeout(400)
@@ -90,20 +93,20 @@ with sync_playwright() as p:
           f"epic remembers the card and its 2 items: {groups}")
     chips = [page.locator(".item").nth(i).locator(".chip.kid").inner_text() for i in (0, 1)]
     check(all("☰ TO DO" in c for c in chips), f"chips say the items are in my checklist card: {chips}")
-    check(page.locator(".my-btn").all_inner_texts() == ["＋ My cards (3) ▾"], "Spring has nothing left for me: its button is gone")
+    check(page.locator(".my-btn").all_inner_texts() == ["＋ Cards (4) ▾", "＋ Cards (4) ▾"], "Spring: my 2 items have a card now (6 → 4)")
     others = [c for c in st["cards"].values() if c["name"].endswith("— Spring merch 24.11") and MARIA in c["idMembers"]]
     check(not others, "no separate cards for those items")
 
     # "A card for each item" in Retail
-    page.locator(".my-btn").first.click()
-    page.locator(".my-menu button", has_text="A card for each item").click()
+    page.locator(".my-btn").nth(1).click()
+    page.locator(".my-row").first.locator("button", has_text="Each").click()
     page.wait_for_function("Object.values(window.__state.cards).filter(c => c.name.indexOf('— Retail SDK') !== -1).length === 3")
     page.wait_for_timeout(400)
     st = S()
     sep = sorted(c["name"] for c in st["cards"].values() if c["name"].endswith("— Retail SDK - 26.11"))
     check(sep == ["Check WEB&B2C — Retail SDK - 26.11", "Tranfser to IT — Retail SDK - 26.11", "🔴 Approve with legal — Retail SDK - 26.11"],
           f"3 separate cards for my Retail items: {sep}")
-    check(page.locator(".my-btn").count() == 0, "nothing left for me anywhere")
+    check(page.locator(".my-btn").all_inner_texts() == ["＋ Cards (4) ▾", "＋ Cards (1) ▾"], "nothing left for me anywhere, others still pending")
 
     # a new item for me in Spring goes into my card by itself, "[3]" becomes its points there
     page.evaluate("""() => { const S = window.__state; S.checklists[0].checkItems.push({ id: ('ci' + 9001).padStart(24, '0'),
@@ -167,7 +170,7 @@ with sync_playwright() as p:
       window.__state.checklists[0].checkItems.push({{ id: ('ci' + 9002).padStart(24, '0'), name: 'Late item @maria_petrenko', state: 'incomplete', pos: 9999999 }}); }}""")
     refresh()
     check(page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems.length") == 4, "card in Done: new items are not added to it")
-    check(page.locator(".my-btn").all_inner_texts() == ["＋ My cards (1) ▾"], "the new item is offered in 'My cards' again")
+    check(page.locator(".my-btn").first.inner_text() == "＋ Cards (5) ▾", "the new item is offered in 'Cards' again")
     real = [e for e in errors if "favicon" not in e]
     check(not real, f"no JS errors in the epic: {real}")
     page.close()
@@ -252,6 +255,21 @@ with sync_playwright() as p:
 
     real = [e for e in errors if "favicon" not in e]
     check(not real, f"no JS errors: {real}")
+    # ---------- "＋ Cards" for other people: Everyone → one checklist card per person ----------
+    ev = open_page("section.html", AS_MARIA)
+    ev.wait_for_selector(".my-btn")
+    ev.locator(".my-btn").first.click()
+    ev.locator(".my-row.all button", has_text="Checklist").click()
+    ev.wait_for_function("Object.values(window.__state.cards).filter(c => c.name.endsWith(' / Spring merch 24.11')).length === 4", timeout=15000)
+    ev.wait_for_timeout(500)
+    st = ev.evaluate("window.__state")
+    kids = [c for c in st["cards"].values() if c["name"].endswith(" / Spring merch 24.11")]
+    per = sorted((len(c["idMembers"]), len(c["checklists"][0]["checkItems"])) for c in kids)
+    check(per == [(1, 1), (1, 1), (1, 2), (1, 2)], f"Everyone: a card per tagged person with only their items: {per}")
+    check(ev.locator(".my-btn").all_inner_texts() == ["＋ Cards (4) ▾"], f"Spring has nothing left: {ev.locator('.my-btn').all_inner_texts()}")
+    ev.screenshot(path=str(OUT / "kid-9-everyone.png"), full_page=True)
+    ev.close()
+
     b.close()
 
 srv.shutdown()
