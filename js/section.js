@@ -232,22 +232,39 @@
 
   // The menu stays open while cards are made, so cards for several people can be started one after another
   // without reopening it; it closes with ×, Esc or a click anywhere else.
+  // Rows keep the order they had when the menu was opened (ui.order): a person whose cards are being made, or
+  // are done, stays in the same place — the list is not re-sorted. People who show up later go to the end.
   function myMenuHtml(cl) {
     if (ui.menu !== cl.id) return '';
     var people = Todo.pendingPeople(data, cl);
     var jobs = ui.jobs.filter(function (j) { return j.clId === cl.id; });
     var allJob = jobs.filter(function (j) { return j.member === '*' && activeJob(j); })[0];
-    var meId = data.me && data.me.id, total = 0, inRow = {};
-    var rows = people.map(function (p) {
-      total += p.count;
-      var nm = p.member.id === meId ? 'Me' : esc(p.member.fullName || p.member.username || 'Unknown');
-      var j = jobs.filter(function (x) { return x.member === p.member.id && activeJob(x); })[0];
-      if (j) { inRow[j.id] = 1; return jobRow(j); }
+    var meId = data.me && data.me.id, total = 0, byId = {};
+    people.forEach(function (p) { total += p.count; byId[p.member.id] = p; });
+    var order = (ui.order || []).slice();
+    var add = function (id) { if (order.indexOf(id) === -1) order.splice(order.indexOf('*') === -1 ? order.length : order.indexOf('*'), 0, id); };
+    people.forEach(function (p) { add(p.member.id); });
+    jobs.forEach(function (j) { if (j.member !== '*') add(j.member); });
+    if (order.indexOf('*') === -1 && (people.length > 1 || jobs.some(function (j) { return j.member === '*'; }))) order.push('*');
+    ui.order = order;
+    // The job to show for a row: the running/waiting one, else the latest finished one.
+    var jobFor = function (id) {
+      var mine = jobs.filter(function (j) { return j.member === id; });
+      return mine.filter(activeJob)[0] || mine[mine.length - 1] || null;
+    };
+    var rows = order.map(function (id) {
+      var j = jobFor(id);
+      if (id === '*') {
+        if (j && (activeJob(j) || people.length <= 1)) return jobRow(j);
+        return people.length > 1 ? personRow(cl, '<b>Everyone</b>', '<span class="my-av all">∗</span>', total, '*', ' all') : (j ? jobRow(j) : '');
+      }
+      var p = byId[id];
+      if (j && (activeJob(j) || !p)) return jobRow(j);
+      if (!p) return '';
+      var nm = id === meId ? 'Me' : esc(p.member.fullName || p.member.username || 'Unknown');
       if (allJob) return '<div class="my-row">' + avatarHtml(p.member) + '<span class="my-name">' + nm + '</span><span class="my-pn">With everyone…</span></div>';
-      return personRow(cl, nm, avatarHtml(p.member), p.count, p.member.id);
+      return personRow(cl, nm, avatarHtml(p.member), p.count, id);
     }).join('');
-    if (people.length > 1 && !allJob) rows += personRow(cl, '<b>Everyone</b>', '<span class="my-av all">∗</span>', total, '*', ' all');
-    rows += jobs.filter(function (j) { return !inRow[j.id]; }).map(jobRow).join('');
     if (!rows) rows = '<div class="my-empty">Every open item has a card ✓</div>';
     return '<div class="my-menu" role="menu">' +
       '<div class="my-menu-head">Open items without a card in “' + esc(Core.withPriority(cl.name, 0)) + '”' +
@@ -452,7 +469,7 @@
     } else if (a === 'mymenu') {
       var mc = el.getAttribute('data-cl');
       if (ui.menu === mc) closeMenu();
-      else { ui.menu = mc; ui.jobs = ui.jobs.filter(activeJob); render(); }
+      else { ui.menu = mc; ui.order = null; ui.jobs = ui.jobs.filter(activeJob); render(); }
     } else if (a === 'myclose') {
       closeMenu();
     } else if (a === 'mykid' || a === 'mysep') {
