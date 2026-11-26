@@ -84,14 +84,15 @@ with sync_playwright() as p:
     page.wait_for_function("window.__state.checklists[0].checkItems[0].name.startsWith('🔴')")
     page.wait_for_timeout(300)
 
-    # 3) "Assign to me" on an item where I'm not assigned
+    # 3) "Assign to me" only adds my @username to the item, no TO DO card
+    before = len(S()["cards"])
     page.locator(".item").nth(1).locator("button.chip.ghost").click()
-    page.wait_for_function("Object.values(window.__state.cards).length === 4")
-    st = S()
-    mine = [c for c in st["cards"].values() if "mem00000000000000000000me" in c["idMembers"]]
-    check(len(mine) == 1, "'take it myself' creates a card for me")
+    page.wait_for_function("window.__state.checklists[0].checkItems[1].name.endsWith(' @oleh_l')")
     page.wait_for_timeout(300)
-    check(page.locator(".item").nth(1).locator(".chip.me.linked").count() == 1 and page.locator(".item").nth(1).locator(".chip.ghost").count() == 0, "my chip replaces the take-it button")
+    st = S()
+    check(len(st["cards"]) == before, "'Assign to me' creates no card")
+    check(page.locator(".item").nth(1).locator(".chip.ghost").count() == 0 and page.locator(".item").nth(1).locator(".chip.add[data-member=mem00000000000000000000me]").count() == 1,
+          "the item now shows my chip '@oleh_l ＋ TO DO' instead of 'Assign to me'")
 
     # 4) sort Retail checklist by priority
     page.locator("button[data-action=sort]").nth(1).click()
@@ -108,14 +109,11 @@ with sync_playwright() as p:
     page.evaluate("""() => {
       const cards = Object.values(window.__state.cards);
       cards.find(c => c.name.startsWith('🔴 Video for educational zones')).idMembers = [];
-      cards.find(c => c.idMembers.includes('mem00000000000000000000me')).idMembers = [];
     }""")
     page.click("button[data-action=refresh]")
     page.wait_for_timeout(600)
     edu = page.locator(".item").nth(3)
     check(edu.locator(".chip.linked").count() == 0 and edu.locator(".chip.add").count() == 2, "removed from card -> chip is '+ TO DO' again")
-    took = page.locator(".item").nth(1)
-    check(took.locator(".chip.me").count() == 0 and took.locator(".chip.ghost").count() == 1, "taker removed from card -> 'Assign to me' is back")
 
     # 4d) card moved out of Done -> epic item reopens; manual ticks are respected; back to Done -> ticked again
     def refresh_until(js):
