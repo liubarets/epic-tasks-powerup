@@ -244,7 +244,7 @@
   // are done, stays in the same place — the list is not re-sorted. People who show up later go to the end.
   function myMenuHtml(cl) {
     if (ui.menu !== cl.id) return '';
-    var people = Todo.pendingPeople(data, cl);
+    var people = peopleOf(cl);
     var jobs = ui.jobs.filter(function (j) { return j.clId === cl.id; });
     var allJob = jobs.filter(function (j) { return j.member === '*' && activeJob(j); })[0];
     var meId = data.me && data.me.id, total = 0, byId = {};
@@ -274,9 +274,77 @@
       return personRow(cl, nm, avatarHtml(p.member), p.count, id);
     }).join('');
     if (!rows) rows = '<div class="my-empty">Every open item has a card ✓</div>';
-    return '<div class="my-menu" role="menu">' +
-      '<div class="my-menu-head">Open items without a card in “' + esc(Core.withPriority(cl.name, 0)) + '”' +
-      '<button class="my-x" data-action="myclose" aria-label="Close" title="Close">×</button></div>' + rows + '</div>';
+    var head = cl.id === ALL
+      ? 'Open items without a card in this epic · ' + plural(pendingChecklists('*').length, 'checklist')
+      : 'Open items without a card in “' + esc(Core.withPriority(cl.name, 0)) + '”';
+    var foot = cl.id === ALL && people.length ? '<div class="my-foot">☰ Checklist: a card for every checklist, for each person · ▤ Each: a card for every item</div>' : '';
+    return '<div class="my-menu' + (cl.id === ALL ? ' all-menu' : '') + '" role="menu">' +
+      '<div class="my-menu-head">' + head +
+      '<button class="my-x" data-action="myclose" aria-label="Close" title="Close">×</button></div>' + rows + foot + '</div>';
+  }
+
+  // ---- "＋ All cards": the same menu for the whole epic (every checklist at once) ----
+  // ☰ Checklist makes a card per checklist for each person (as if "＋ Cards → ☰ Checklist" was pressed on
+  // every checklist); ▤ Each makes a card per item. Items that already have a card are skipped.
+  var ALL = 'ALL';
+  var allCl = { id: ALL, name: '', checkItems: [] };
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+
+  // The checklists with open items without a card (for one person, or for anyone with '*').
+  function pendingChecklists(member) {
+    return data.checklists.filter(function (cl) {
+      return Todo.pendingInChecklist(data, cl).some(function (j) { return member === '*' || j.memberId === member; });
+    });
+  }
+
+  // People with items to add: in one checklist, or summed over the whole epic (me first, then by name).
+  function peopleOf(cl) {
+    if (cl.id !== ALL) return Todo.pendingPeople(data, cl);
+    var by = {}, list = [];
+    data.checklists.forEach(function (c) {
+      Todo.pendingPeople(data, c).forEach(function (p) {
+        if (!by[p.member.id]) { by[p.member.id] = { member: p.member, count: 0 }; list.push(by[p.member.id]); }
+        by[p.member.id].count += p.count;
+      });
+    });
+    var meId = data.me && data.me.id;
+    var name = function (p) { return (p.member.fullName || p.member.username || '').toLowerCase(); };
+    return list.sort(function (a, b) {
+      if (a.member.id === meId) return -1;
+      if (b.member.id === meId) return 1;
+      return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
+    });
+  }
+
+  function allCardsHtml() {
+    if (data.checklists.length < 2) return '';
+    var act = ui.jobs.filter(function (j) { return j.clId === ALL && activeJob(j); });
+    var attrs = ' data-action="mymenu" data-cl="' + ALL + '" aria-expanded="' + (ui.menu === ALL) + '"';
+    if (act.length) {
+      var run = act.filter(function (j) { return j.state === 'run'; })[0];
+      return '<button class="all-btn"' + attrs + ' title="Creating cards">Creating… <span class="my-bprog"><span style="width:' + (run ? pct(run) : 0) + '%"></span></span></button>';
+    }
+    var n = 0;
+    data.checklists.forEach(function (cl) { n += Todo.pendingInChecklist(data, cl).length; });
+    if (!n) return '<button class="all-btn off" disabled title="Every open item already has a card">＋ All cards</button>';
+    return '<button class="all-btn"' + attrs + ' title="Create TO DO cards for the open items of every checklist">＋ All cards (' + n + ') ▾</button>';
+  }
+
+  // Runs a menu choice over every checklist, one after another, with one progress bar for all of them.
+  function addAll(kind, member, tell) {
+    var cls = pendingChecklists(member);
+    var counts = cls.map(function (cl) {
+      return Todo.pendingInChecklist(data, cl).filter(function (j) { return member === '*' || j.memberId === member; }).length;
+    });
+    var grand = counts.reduce(function (a, b) { return a + b; }, 0), base = 0;
+    tell(0, grand);
+    return cls.reduce(function (p, cl, i) {
+      return p.then(function () {
+        var step = function (n) { tell(Math.min(base + n, grand), grand); };
+        var f = kind === 'mykid' ? Todo.addChecklistCards : Todo.addSeparateCards;
+        return Promise.resolve(f(t, data, cl.id, member, step)).then(function () { base += counts[i]; tell(base, grand); });
+      });
+    }, Promise.resolve());
   }
 
   function closeMenu() {
@@ -289,7 +357,7 @@
   // Jobs from the menu run one after another (each rewrites the epic's Teamload data).
   var jobSeq = 0, pumping = false;
   function queueJob(kind, clId, member) {
-    var cl = data.checklists.filter(function (x) { return x.id === clId; })[0];
+    var cl = clId === ALL ? allCl : data.checklists.filter(function (x) { return x.id === clId; })[0];
     if (!cl) return;
     var label, av;
     if (member === '*') { label = '<b>Everyone</b>'; av = '<span class="my-av all">∗</span>'; }
@@ -316,7 +384,8 @@
     j.state = 'run';
     render();
     var tell = function (n, total) { j.n = n; j.total = total; render(); };
-    var p = j.kind === 'mykid' ? Todo.addChecklistCards(t, data, j.clId, j.member, tell) : Todo.addSeparateCards(t, data, j.clId, j.member, tell);
+    var p = j.clId === ALL ? addAll(j.kind, j.member, tell)
+      : j.kind === 'mykid' ? Todo.addChecklistCards(t, data, j.clId, j.member, tell) : Todo.addSeparateCards(t, data, j.clId, j.member, tell);
     Promise.resolve(p).then(function () {
       j.state = 'ok'; j.n = j.total;
     }, function (e) {
@@ -379,7 +448,7 @@
     var html = '<div class="toolbar">' +
       '<span class="spacer"></span>' +
       '<button class="icon" data-action="refresh" title="Refresh">⟳</button>' +
-      '<button class="icon" data-action="settings" title="Settings">⚙</button></div>';
+      '<button class="icon" data-action="settings" title="Settings">⚙</button>' + allCardsHtml() + '</div>' + myMenuHtml(allCl);
     if (ui.error) html += '<div class="error">' + esc(ui.error) + '</div>';
     // A re-render replaces the buttons: an open drop-down would point at nothing.
     if (window.EpicDropdown) EpicDropdown.close();
@@ -487,7 +556,7 @@
 
   // A click outside the "＋ Cards" menu, Esc, or a click outside the iframe (it loses focus) closes it.
   document.addEventListener('click', function (e) {
-    if (ui.menu && !e.target.closest('.my-menu, .my-btn')) closeMenu();
+    if (ui.menu && !e.target.closest('.my-menu, .my-btn, .all-btn')) closeMenu();
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && ui.menu) closeMenu();
