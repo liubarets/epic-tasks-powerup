@@ -85,8 +85,8 @@ with sync_playwright() as p:
     check(kid["name"] == "PRODUCT LAUNCHES & UPDATES / Spring merch 24.11" and kid["idList"] == "L_todo" and kid["idMembers"] == [MARIA],
           f"one card 'Epic / Checklist' in TO DO for me: {kid['name']} {kid['idList']} {kid['idMembers']}")
     check(kid_items == ["Approve with legal", "Tranfser to IT"], f"only my open items, no @mentions: {kid_items}")
-    check(kid["desc"].startswith("[PRODUCT LAUNCHES & UPDATES](https://trello.com/c/EPIC0001") and kid.get("urlSource") == st["card"]["url"],
-          "description and attachment link back to the epic")
+    check(kid["desc"].startswith("[PRODUCT LAUNCHES & UPDATES](https://trello.com/c/EPIC0001") and not kid.get("urlSource"),
+          "the description links back to the epic; nothing is attached")
     check(st["plugin"].get(kid["id"], {}).get("kid") == st["card"]["id"], "the card is marked as a checklist card of this epic")
     groups = st["plugin"]["card"].get("groups", {})
     check(len(groups) == 1 and list(groups.values())[0]["s"] == kid["shortLink"] and len(list(groups.values())[0]["i"]) == 2,

@@ -57,8 +57,8 @@ with sync_playwright() as p:
     check(new["name"] == "Approve with legal — Spring merch 24.11", f"TODO card name: {new['name']}")
     check(new["idMembers"] == ["mem" + "1".zfill(21)], "TODO card assigned to maria")
     check(st["checklists"][0]["checkItems"][0]["name"] == "Approve with legal @maria_petrenko", "epic item untouched (stays in checklist)")
-    check(new.get("urlSource") == st["card"]["url"] and not any(r["path"].endswith("/attachments") for r in st["requests"]),
-          "epic link attached in the same request as the card (no extra call)")
+    check(not new.get("urlSource") and not any(r["path"].endswith("/attachments") for r in st["requests"]),
+          "nothing is attached to the card (no Attachments section); the epic is linked from the description")
     check(all("fields=" in r for r in st.get("batchRoutes", [])[:2]), f"linked cards fetched with only the needed fields: {st.get('batchRoutes', [])[:1]}")
     check(new["desc"] == "[PRODUCT LAUNCHES & UPDATES](https://trello.com/c/EPIC0001/1-product-launches) / Spring merch 24.11", f"TODO card desc: {new['desc']}")
     check(new["idLabels"] == [], "TODO card has no labels")
