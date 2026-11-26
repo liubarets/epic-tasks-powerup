@@ -6,12 +6,12 @@ It adds a **"TASKS"** section to the back of an epic card:
 
 - A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3) and a "↕ Sort by priority" button.
 - A chip for **every assignee** next to each item: `@username ＋ TO DO`. A click creates a card in your TO DO list assigned to that person. **The item stays in the epic.**
-- "＋ Add all to TO DO" in the TASKS header: pick a checklist or "All tasks" and create the missing TO DO cards for the open items in one click.
 - After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. Clicking the chip opens the card.
 - "＋ Assign to me": take an item you are not mentioned in.
-- **"＋ My cards (n) ▾"** in a checklist header, for the person who clicks: their open items of that checklist that have no card yet. Two choices:
-  - **One card with a checklist**: a card "Epic / Checklist" in TO DO with that person as its member and a checklist of just their items (priority emoji and due dates kept, no @mentions). If they already have such a card for this checklist, the items are added to it.
-  - **A card for each item**: separate cards, as the chips do.
+- **"＋ Cards (n) ▾"** in a checklist header: n = open items × assignees of that checklist with no card yet. Anyone can use it, for themselves or for others. The menu has a row per person tagged in those items (me first, with their count) and an **Everyone** row; each row has two buttons:
+  - **☰ Checklist**: a card "Epic / Checklist" in TO DO with that person as its member and a checklist of just their items (priority emoji and due dates kept, no @mentions). If they already have such a card for this checklist, the items are added to it.
+  - **▤ Each**: separate cards, as the chips do.
+  People not tagged in the checklist are not listed.
 - "Only mine" and "Hide completed" filters, open P1 counter.
 
 And **story points** for the board (turned on per board in settings):
@@ -36,7 +36,6 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 | TO DO card | Name: `🔴 Approve with legal — Merch launch`. Member: the assignee. Description: `[Epic name](epic link) / Checklist name`. Due date: from the item. Attachment: link to the epic. No labels — the emoji in the name is the priority. |
 | Item → card link | In the Power-Up data on the epic card. The checklist item itself is not changed. The link counts only while the card exists and the person is still a member of it: if they remove themselves from the card (or the card is deleted), the item shows "＋ TO DO" for them again. |
 | Priority change | Updates the item and the emoji in TO DO cards that are not done yet, wherever the emoji stands in the card title. The new priority shows at once and is saved in the background, so it is applied even if you close the epic right away (the same goes for "Sort by priority"). |
-| "Add all to TO DO" | The button sits in the TASKS header. Trello draws it, so it can't show a counter. A click opens a menu with the checklists that have something to add and how many cards each will create, plus "All tasks" (every checklist at once) when more than one does. One card per open item × assignee that doesn't have a card yet; items without assignees and people who are not board members are skipped. The cards are created in the background while the board is open: the menu shows the progress ("Adding TO DO cards… 2/5"), you can close it at any time, reopening it shows the progress again, and Trello shows a notice when all cards are created. When there is nothing to add, the menu says so. |
 | Story points | The Trello custom field "Story points" (number), created from the settings with one click and hidden from the card front (the Power-Up's badge shows the number instead). A card with several members counts fully for each of them; the TO DO total counts every card once. A card whose title still has `[n]` counts too. |
 | Moving `[n]` / `(n)` from titles | Optional, per board ("Move [n] or (n) from card titles into the field automatically"). The value is written to the field first, then the title is cleaned, so nothing is lost if renaming fails. It runs in the browser of anyone who connected Teamload while the board is open, usually within a second; "Move now" in the settings does all cards at once. Only 1–3 digits count (`[2025]` is not points); in round and curly brackets at most one digit after the point, so a date like `(24.11)` is not taken for points. |
 | Checklist card | Name `Epic name / Checklist name`, the person as its member, `[Epic](link) / Checklist` as description, link to the epic attached, one checklist named like the epic's. The card knows its epic (Power-Up data `kid` on the card) and gets no TASKS section. The epic remembers which items are in whose card (Power-Up data `groups`: checklist × person → card and its items). An item × person is in a separate card **or** in a checklist card, never both: the chip shows where (`☰ TO DO`, `☰ ✓` once ticked there). |
@@ -141,7 +140,7 @@ js/core.js          logic (priorities, mentions, sorting)
 js/todo.js          loading the epic, link validity, creating TO DO cards and checklist cards, epic ↔ card sync
 js/auth.js          authorization + REST
 js/section.js       section UI
-js/client.js        connector + "Add all to TO DO" header button (runs the job in the background)
+js/client.js        connector (capabilities, badges, background jobs)
 js/addall.js        "Add to TO DO" menu + progress
 js/settings.js      settings UI
 js/points.js        story points: [n] parsing, the field, sums, moving [n] into the field
@@ -161,5 +160,5 @@ test/               tests (not deployed)
 node --test test/core.test.js test/points.test.js   # logic
 python3 test/run_ui.py            # TASKS section UI against a mocked Trello (needs playwright + Chrome)
 python3 test/run_sp.py            # story points UI against a mocked Trello
-python3 test/run_kid.py           # "＋ My cards", checklist cards, epic ↔ card sync, points per checklist item
+python3 test/run_kid.py           # "＋ Cards", checklist cards, epic ↔ card sync, points per checklist item
 ```
