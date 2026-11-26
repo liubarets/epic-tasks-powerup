@@ -158,16 +158,21 @@ with sync_playwright() as p:
     check("✓ TO DO" in first_chip and "DONE" not in first_chip, f"card in TO DO is not done even if TO DO is listed as Done: {first_chip}")
     page.evaluate("window.__state.plugin.board.cfg.doneListIds = ['L_done']")
 
-    # 5) filters
-    page.check("input[data-action=hideDone]")
-    check(page.locator(".item.done").count() == 0, "hide-done filter")
-    page.uncheck("input[data-action=hideDone]")
-    page.wait_for_timeout(200)
+    # 5) the "Only mine / Hide completed / open P1" block is gone
+    check(page.locator("input[data-action=hideDone], input[data-action=mine], .pill.p1").count() == 0, "no filters block above the checklists")
     page.screenshot(path=str(OUT / "2-after-actions.png"), full_page=True)
 
-    # 6) open linked card
+    # 6) a chip with a card opens a status menu: open the card from it, or move the card
     page.locator(".chip.linked").first.click()
-    check(len(S()["shown"]) == 1, "clicking a linked chip opens the card")
+    check(page.locator(".st-menu").count() == 1 and page.locator(".st-menu button[data-st]").count() == 3, "status menu: TO DO / In progress / DONE")
+    page.locator(".st-menu .st-open").click()
+    check(len(S()["shown"]) == 1, "'Open card' in the menu opens the card")
+    before = {k: c["idList"] for k, c in S()["cards"].items()}
+    page.locator(".chip.linked").first.click()
+    page.locator(".st-menu button[data-st=done]").click()
+    page.wait_for_function("Object.values(window.__state.cards).filter(c => c.idList === 'L_done').length > " + str(sum(1 for v in before.values() if v == "L_done")), timeout=5000)
+    moved = [k for k, c in S()["cards"].items() if before.get(k) != c["idList"]]
+    check(len(moved) == 1 and S()["cards"][moved[0]]["idList"] == "L_done", f"DONE from the epic moves that person's card to Done: {moved}")
 
     real_errors = [e for e in errors if "favicon" not in e]
     check(not real_errors, f"no JS errors: {real_errors}")

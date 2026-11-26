@@ -268,7 +268,7 @@ with sync_playwright() as p:
     kids = [c for c in st["cards"].values() if c["name"].endswith(" / Spring merch 24.11")]
     per = sorted((len(c["idMembers"]), len(c["checklists"][0]["checkItems"])) for c in kids)
     check(per == [(1, 1), (1, 1), (1, 2), (1, 2)], f"Everyone: a card per tagged person with only their items: {per}")
-    check(ev.locator(".my-btn").all_inner_texts() == ["＋ Cards (4) ▾"], f"Spring has nothing left: {ev.locator('.my-btn').all_inner_texts()}")
+    check(ev.locator(".my-btn").all_inner_texts() == ["＋ Cards", "＋ Cards (4) ▾"] and ev.locator(".my-btn").first.is_disabled(), f"Spring has nothing left: grey, inactive button: {ev.locator('.my-btn').all_inner_texts()}")
     ev.screenshot(path=str(OUT / "kid-9-everyone.png"), full_page=True)
     ev.close()
 
@@ -287,6 +287,31 @@ with sync_playwright() as p:
     n_items = [len(c["checklists"][0]["checkItems"]) for c in kc]
     check(n_items == [2], f"items already in the card are linked again, not added twice: {n_items}")
     dp.close()
+
+    # ---------- status from the epic for items in a checklist card ----------
+    sp2 = open_page("section.html", AS_MARIA)
+    sp2.wait_for_selector(".my-btn")
+    sp2.locator(".my-btn").first.click()
+    sp2.locator(".my-row").first.locator("button", has_text="Checklist").click()
+    sp2.wait_for_selector(".chip.kid")
+    sp2.wait_for_timeout(600)
+    kidc = lambda: [c for c in sp2.evaluate("window.__state")["cards"].values() if c["name"].endswith(" / Spring merch 24.11")][0]
+    sp2.locator(".chip.kid").first.click()
+    sp2.screenshot(path=str(OUT / "kid-10-status-menu.png"), full_page=True)
+    sp2.locator(".st-menu button[data-st=prog]").click()
+    sp2.wait_for_function("Object.values(window.__state.cards).some(c => c.name.endsWith(' / Spring merch 24.11') && c.idList === 'L_prog')", timeout=5000)
+    check(kidc()["idList"] == "L_prog", "one item → In progress from the epic moves the whole checklist card to In progress")
+    sp2.wait_for_timeout(600)
+    sp2.locator(".chip.kid").first.click()
+    sp2.locator(".st-menu button[data-st=done]").click()
+    sp2.wait_for_timeout(1200)
+    k = kidc()
+    check(k["idList"] == "L_prog" and [i["state"] for i in k["checklists"][0]["checkItems"]].count("complete") == 1, "one of two items DONE: ticked, card stays")
+    sp2.locator(".chip.kid").nth(1).click()
+    sp2.locator(".st-menu button[data-st=done]").click()
+    sp2.wait_for_function("Object.values(window.__state.cards).some(c => c.name.endsWith(' / Spring merch 24.11') && c.idList === 'L_done')", timeout=5000)
+    check(kidc()["idList"] == "L_done", "all of the person's items DONE from the epic: the card moves to Done")
+    sp2.close()
 
     b.close()
 

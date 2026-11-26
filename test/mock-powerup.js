@@ -189,6 +189,7 @@
       var card = Object.values(S.cards).filter(function (c) { return c.id === m[1]; })[0] || (S.card.id === m[1] ? S.card : null);
       if (q.name !== undefined) card.name = q.name;
       if (q.idLabels !== undefined) card.idLabels = q.idLabels.split(',').filter(Boolean);
+      if (q.idList !== undefined && q.idList !== card.idList) { (card.actions = card.actions || []).unshift({ date: now(), data: { listBefore: { id: card.idList }, listAfter: { id: q.idList } } }); card.idList = q.idList; }
       if (S.renderOnRest && renderFn) setTimeout(renderFn, 0);
       return json(clone(card));
     }
