@@ -42,13 +42,20 @@ button.my-btn:hover { background: #0055cc; }
 .cl-head button.my-btn.off, .cl-head button.my-btn.off:hover, .cl-head button.my-btn.off:focus, .cl-head button.my-btn[disabled] {
   background: var(--bg-soft) !important; color: var(--muted) !important; box-shadow: none !important; cursor: default; pointer-events: none; }
 .cl-head select.cl-prio { flex: none; width: auto; margin: 0 6px 0 0; }
-.st-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
-  box-shadow: 0 4px 12px rgba(9,30,66,.12); }
-.st-who { font-size: 12px; color: var(--muted); margin-right: 2px; }
-.st-menu button { margin: 0; padding: 2px 8px; font-size: 12px; line-height: 20px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--text); }
-.st-menu button:hover { background: var(--blue-soft); border-color: var(--blue); }
-.st-menu button.on { background: var(--blue-soft); border-color: var(--blue); color: var(--blue); font-weight: 600; }
-.st-menu button.st-open { border: 0; color: var(--blue); margin-left: auto; }
+/* Drop-down list drawn inside the iframe, styled like Trello's popover; always opens down (js/dropdown.js) */
+.dd { position: absolute; z-index: 50; width: 240px; max-width: calc(100vw - 8px); box-sizing: border-box; background: #fff; border-radius: 8px;
+  box-shadow: 0 8px 12px #091e4226, 0 0 1px #091e424f; padding: 0 0 8px; color: var(--text); }
+.dd-head { position: relative; height: 40px; display: flex; align-items: center; justify-content: center; padding: 0 36px; }
+.dd-title { font-size: 14px; font-weight: 600; color: #44546f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd button.dd-x { position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 4px;
+  background: none; color: #44546f; font-size: 18px; line-height: 28px; }
+.dd button.dd-x:hover { background: rgba(9,30,66,.06); }
+ul.dd-list { list-style: none; margin: 0; padding: 0; }
+.dd button.dd-item { display: flex; align-items: center; width: 100%; min-height: 32px; margin: 0; padding: 6px 12px; border: 0; border-radius: 0;
+  background: none; color: var(--text); font-size: 14px; text-align: left; box-shadow: none; }
+.dd button.dd-item:hover, .dd button.dd-item:focus-visible { background: rgba(9,30,66,.06); outline: none; }
+.dd button.dd-item.on { font-weight: 600; }
+.dd-check { width: 18px; flex: none; color: var(--text); }
 .my-busy { color: var(--muted); font-size: 12px; }
 .my-menu { border: 1px solid var(--line); border-radius: 8px; padding: 6px; margin: 4px 0 8px; background: #fff;
   box-shadow: 0 4px 8px #091e4226; }
@@ -66,6 +73,19 @@ button.my-btn:hover { background: #0055cc; }
 .my-n { color: var(--muted); font-size: 12px; min-width: 16px; text-align: right; }
 .my-menu button.my-act { display: inline-block; width: auto; flex: none; padding: 2px 8px; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
 .my-menu button.my-act:hover { background: var(--blue-soft); border-color: var(--blue); }
+/* × in the "＋ Cards" menu, and the progress of cards being created */
+.my-menu-head { position: relative; padding-right: 30px; }
+.my-menu button.my-x { position: absolute; right: 0; top: -4px; width: 24px; height: 24px; padding: 0; text-align: center; color: #44546f; font-size: 16px; line-height: 24px; }
+.my-menu button.my-x:hover { background: rgba(9,30,66,.06); }
+.my-prog { flex: none; width: 120px; height: 6px; background: var(--bg-soft); border-radius: 3px; overflow: hidden; }
+.my-prog > span { display: block; height: 100%; background: var(--blue); transition: width .2s; }
+.my-prog.wait > span { width: 30% !important; background: var(--line); animation: my-wait 1.2s ease-in-out infinite; }
+@keyframes my-wait { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+.my-pn { flex: none; min-width: 64px; color: var(--muted); font-size: 12px; text-align: right; }
+.my-ok { flex: none; color: var(--green); font-size: 12px; font-weight: 600; }
+.my-empty { padding: 6px; color: var(--muted); font-size: 12px; }
+button.my-btn .my-bprog { display: inline-block; vertical-align: middle; width: 40px; height: 4px; margin-left: 6px; background: rgba(255,255,255,.35); border-radius: 2px; overflow: hidden; }
+button.my-btn .my-bprog > span { display: block; height: 100%; background: #fff; }
 .my-menu small { display: block; color: var(--muted); font-size: 12px; line-height: 16px; font-weight: 400; }
 .cl-name { font-weight: 600; }
 .cl-count { color: var(--muted); font-size: 12px; }
