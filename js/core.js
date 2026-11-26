@@ -332,19 +332,72 @@
     return lines.join('\n');
   }
 
+  // ---- Sprints: "SPRINT 48" lists hold the epics, "TO DO SP48" columns hold that sprint's tasks ----
+  var SPRINT_RE = /(?:sprint|спринт|спрінт)\s*#?\s*(\d{1,4})/i;
+  var SPRINT_TODO_RE = /^\s*to\s*-?\s*do\s*sp\s*(\d{1,4})\s*$/i;
+  // The sprint number in a list name ("SPRINT 48" → 48), or null. A "TO DO SP48" column is not a sprint list.
+  function sprintNumber(name) {
+    if (sprintTodoNumber(name) !== null) return null;
+    var m = SPRINT_RE.exec(String(name || ''));
+    return m ? Number(m[1]) : null;
+  }
+  // "TO DO SP48" (also "To do SP 48", "TODO SP48") → 48, else null.
+  function sprintTodoNumber(name) {
+    var m = SPRINT_TODO_RE.exec(String(name || ''));
+    return m ? Number(m[1]) : null;
+  }
+  function sprintTodoName(n) { return 'TO DO SP' + n; }
+  // Sprint numbers oldest → newest. Numbering starts again from 1 in a new year: a gap of more than 2
+  // between numbers on the board means the low ones are the new year's ([1, 51, 52] → [51, 52, 1]).
+  function sprintOrder(nums) {
+    var a = (nums || []).filter(function (n, i, all) { return n !== null && all.indexOf(n) === i; }).sort(function (x, y) { return x - y; });
+    var gap = 0, at = -1;
+    for (var i = 0; i + 1 < a.length; i++) if (a[i + 1] - a[i] > gap) { gap = a[i + 1] - a[i]; at = i; }
+    return gap > 2 ? a.slice(at + 1).concat(a.slice(0, at + 1)) : a;
+  }
+  // The TO DO columns of a board, oldest → newest: the "TO DO SP<n>" ones, or else the TO DO list from settings.
+  function todoColumns(lists, cfg) {
+    var cols = (lists || []).map(function (l) { return { id: l.id, name: l.name, n: sprintTodoNumber(l.name) }; })
+      .filter(function (c) { return c.n !== null; });
+    if (!cols.length) {
+      var l = (lists || []).filter(function (x) { return cfg && x.id === cfg.todoListId; })[0];
+      return l ? [{ id: l.id, name: l.name, n: null }] : [];
+    }
+    var order = sprintOrder(cols.map(function (c) { return c.n; }));
+    return cols.sort(function (a, b) { return order.indexOf(a.n) - order.indexOf(b.n); });
+  }
+  // Is this list a TO DO list (the one from settings, or any "TO DO SP<n>")?
+  function isTodoList(lists, cfg, listId) {
+    if (!listId) return false;
+    if (cfg && listId === cfg.todoListId) return true;
+    var l = (lists || []).filter(function (x) { return x.id === listId; })[0];
+    return !!l && sprintTodoNumber(l.name) !== null;
+  }
+  // The column the story points panel counts: the newest sprint's, unless the person picked an older one
+  // while this was still the newest. saved = { id, newest } (member's private data "spList").
+  function panelColumn(lists, cfg, saved) {
+    var cols = todoColumns(lists, cfg);
+    var newest = cols[cols.length - 1] || null;
+    var col = newest;
+    if (saved && newest && saved.newest === newest.id) col = cols.filter(function (c) { return c.id === saved.id; })[0] || newest;
+    return { cols: cols, col: col, newest: newest };
+  }
+
   // ---- Status of an item (TO DO / IN PROGRESS / DONE) ----
 
   // The "in progress" list: the board's list between the TO DO list and the first Done list
   // (preferring one named like "progress" / "doing"); null when the board has none.
   function progressListId(lists, cfg) {
     var ls = lists || [], done = (cfg && cfg.doneListIds) || [], todo = cfg && cfg.todoListId;
-    var ti = -1, di = ls.length;
-    ls.forEach(function (l, i) { if (l.id === todo) ti = i; });
-    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
-    var between = ti === -1 ? [] : ls.slice(ti + 1, di).filter(function (l) { return done.indexOf(l.id) === -1; });
+    // "TO DO SP<n>" columns (to the right of Done) are never "in progress".
+    var ok = function (l) { return l.id !== todo && done.indexOf(l.id) === -1 && sprintTodoNumber(l.name) === null; };
     var named = function (l) { return /progress|doing|в робот|в процес/i.test(l.name || ''); };
-    var pick = between.filter(named)[0] || between[0] ||
-      ls.filter(function (l) { return named(l) && l.id !== todo && done.indexOf(l.id) === -1; })[0];
+    var byName = ls.filter(function (l) { return ok(l) && named(l); })[0];
+    if (byName) return byName.id;
+    var ti = -1, di = ls.length;
+    ls.forEach(function (l, i) { if (l.id === todo || (ti === -1 && sprintTodoNumber(l.name) !== null)) ti = i; });
+    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
+    var pick = ti === -1 ? null : ls.slice(ti + 1, di).filter(ok)[0];
     return pick ? pick.id : null;
   }
 
@@ -421,6 +474,13 @@
     descChecklistPriority: descChecklistPriority,
     withDescChecklistPriority: withDescChecklistPriority,
     progressListId: progressListId,
+    sprintNumber: sprintNumber,
+    sprintTodoNumber: sprintTodoNumber,
+    sprintTodoName: sprintTodoName,
+    sprintOrder: sprintOrder,
+    todoColumns: todoColumns,
+    isTodoList: isTodoList,
+    panelColumn: panelColumn,
     itemStatus: itemStatus,
     statusPlan: statusPlan,
   };
