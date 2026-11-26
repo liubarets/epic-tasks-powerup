@@ -39,6 +39,14 @@ button.link:disabled { color: var(--muted); cursor: default; text-decoration: no
 button.my-btn { background: var(--blue); color: #fff; border: 0; border-radius: 4px; font-size: 12px; line-height: 20px;
   padding: 2px 8px; margin: 0; font-weight: 600; }
 button.my-btn:hover { background: #0055cc; }
+/* "＋ All cards ▾" in the toolbar: the same menu for every checklist of the epic */
+button.all-btn { background: var(--blue); color: #fff; border: 0; border-radius: 4px; font-size: 12px; line-height: 20px; padding: 2px 8px; margin: 0; font-weight: 600; }
+button.all-btn:hover { background: #0055cc; }
+button.all-btn.off, button.all-btn[disabled] { background: var(--bg-soft) !important; color: var(--muted) !important; cursor: default; pointer-events: none; }
+button.all-btn .my-bprog { display: inline-block; vertical-align: middle; width: 40px; height: 4px; margin-left: 6px; background: rgba(255,255,255,.35); border-radius: 2px; overflow: hidden; }
+button.all-btn .my-bprog > span { display: block; height: 100%; background: #fff; }
+.my-menu.all-menu { margin: 0 0 12px; }
+.my-foot { padding: 6px 6px 2px; margin-top: 4px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .cl-head button.my-btn.off, .cl-head button.my-btn.off:hover, .cl-head button.my-btn.off:focus, .cl-head button.my-btn[disabled] {
   background: var(--bg-soft) !important; color: var(--muted) !important; box-shadow: none !important; cursor: default; pointer-events: none; }
 .cl-head select.cl-prio { flex: none; width: auto; margin: 0 6px 0 0; }
