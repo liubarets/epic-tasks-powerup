@@ -253,9 +253,15 @@
       }).join('');
       return (lists.length > 1 ? '<div class="cp-cl">' + esc(cl.name) + '</div>' : '') + '<ul class="cp-list">' + items + '</ul>';
     }).join('');
+    var all = P.allItems(d.card), ticked = all.filter(function (it) { return it.state === 'complete'; }).length;
+    var warn = Core.leftDoneTicked({ listId: d.card.idList, lists: d.lists, cfg: d.cfg, total: all.length, checked: ticked })
+      ? '<div class="warn-left" role="status"><span class="warn-i">⚠</span><div><b>This card was moved out of Done, but ' +
+        (all.length === 1 ? 'its task is' : 'all ' + all.length + ' tasks are') + ' still marked DONE.</b><br>' +
+        'Change the status of the tasks that are still in progress, or move the card back to Done.</div></div>'
+      : '';
     root.innerHTML =
       (ui.authed ? '' : '<div class="notice">Connect Teamload to set points. <button class="link" data-action="auth">Connect</button></div>') +
-      (ui.error ? '<div class="error">' + esc(ui.error) + '</div>' : '') +
+      (ui.error ? '<div class="error">' + esc(ui.error) + '</div>' : '') + warn +
       '<div class="cp-head">' + head + '</div>' + body;
     return resize();
   }

@@ -115,9 +115,11 @@
       var kid = info.kind === 'kid';
       // The list's own name, as on the board ("In progress", "TO DO"), or DONE.
       var label = st === 'done' ? 'DONE' : esc(data.listName[st === 'prog' ? Todo.progressListId(data) : st === 'todo' ? todoOf(info) : info.card.idList] || 'TO DO');
-      return '<button class="' + cls + (st === 'done' ? ' done' : ' linked') + (kid ? ' kid' : '') + '" data-action="status" data-item="' + esc(item.id) +
-        '" data-member="' + esc(a.id) + '" title="Change status">' + who +
-        ' <span class="st">' + (kid ? '☰ ' : '✓ ') + label + ' ▾</span></button>';
+      // A checklist card moved out of Done with all its items still ticked: the chip says so (⚠).
+      var left = kid && st === 'done' && cardLeftDone(info.card);
+      return '<button class="' + cls + (st === 'done' ? ' done' : ' linked') + (kid ? ' kid' : '') + (left ? ' warn' : '') + '" data-action="status" data-item="' + esc(item.id) +
+        '" data-member="' + esc(a.id) + '" title="' + (left ? 'The card is not in Done any more, but all its tasks are still marked DONE' : 'Change status') + '">' + who +
+        ' <span class="st">' + (kid ? '☰ ' : '✓ ') + label + (left ? ' ⚠' : '') + ' ▾</span></button>';
     }
     if (item.state === 'complete') return '<span class="' + cls + '">' + who + '</span>';
     return '<button class="' + cls + ' add" data-action="todo" data-item="' + esc(item.id) + '" data-member="' + esc(a.id) +
@@ -127,6 +129,13 @@
   // Where new cards go: the epic's TO DO column by name ("TO DO SP48", even before it is made), else "TO DO".
   function todoName() {
     return data.listName[data.todo] || (data.sprint != null ? EpicCore.sprintTodoName(data.sprint) : 'TO DO');
+  }
+
+  function cardLeftDone(c) {
+    var all = [];
+    (c.checklists || []).forEach(function (cl) { all = all.concat(cl.checkItems || []); });
+    var ticked = all.filter(function (it) { return it.state === 'complete'; }).length;
+    return Core.leftDoneTicked({ listId: c.idList, lists: data.lists, cfg: data.cfg, total: all.length, checked: ticked });
   }
 
   // The TO DO column of a card: the one it is in, else the epic's ("TO DO SP48", maybe not made yet).

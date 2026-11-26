@@ -112,7 +112,8 @@
       // Every TO DO list: the one from settings and the sprints' "TO DO SP<n>" columns.
       var todoIds = window.EpicCore.todoColumns(r[2] || [], cfg).map(function (c) { return c.id; });
       if (cfg.todoListId && todoIds.indexOf(cfg.todoListId) === -1) todoIds.push(cfg.todoListId);
-      return { on: !!sp.on, migrate: !!sp.migrate && !!f, fieldId: f ? f.id : null, todoListId: cfg.todoListId, todoIds: todoIds };
+      return { on: !!sp.on, migrate: !!sp.migrate && !!f, fieldId: f ? f.id : null, todoListId: cfg.todoListId, todoIds: todoIds,
+        lists: r[2] || [], cfg: cfg };
     }).catch(function () { return { on: false }; });
     return spCache;
   }
@@ -214,14 +215,18 @@
 
     'card-badges': function (t) {
       return spCfg(t).then(function (c) {
-        if (!c.on) return [];
         return t.card('id', 'name', 'idList', 'customFieldItems', 'badges').then(function (card) {
+          // Moved out of Done with every item still ticked: "⚠ Statuses" (whether story points are on or not).
+          var b = card.badges || {};
+          var warn = c.cfg && window.EpicCore.leftDoneTicked({ listId: card.idList, lists: c.lists, cfg: c.cfg, total: b.checkItems, checked: b.checkItemsChecked })
+            ? [{ text: '⚠ Statuses', color: 'yellow', title: 'Moved out of Done, but every task is still marked DONE' }] : [];
+          if (!c.on) return warn;
           maybeMove(t, card, c);
           return itemsValue(t, card).then(function (items) {
             maybeSetField(t, card, c, items);
             var v = items !== undefined ? items : P.cardPoints(card, c.fieldId);
-            if (v != null) return [{ text: P.fmt(v), icon: BOLT, color: 'blue' }];
-            return (c.todoIds || []).indexOf(card.idList) !== -1 ? [{ text: '?', icon: BOLT, color: 'yellow' }] : [];
+            if (v != null) return [{ text: P.fmt(v), icon: BOLT, color: 'blue' }].concat(warn);
+            return ((c.todoIds || []).indexOf(card.idList) !== -1 ? [{ text: '?', icon: BOLT, color: 'yellow' }] : []).concat(warn);
           });
         });
       });

@@ -443,8 +443,19 @@
     return { items: items, moveTo: moveTo };
   }
 
+  // A task card that was moved out of Done while all its checklist items are still ticked (moving a card to Done
+  // ticks them all): it is back in a TO DO column or In progress, so some statuses need changing by hand.
+  // Epics (in sprint lists) and other lists never count.
+  //   o = { listId, lists, cfg, total, checked }  (total / checked: checklist items, e.g. a card's badges)
+  function leftDoneTicked(o) {
+    var cfg = o.cfg || {}, done = cfg.doneListIds || [];
+    if (!o.total || o.checked < o.total || !done.length || done.indexOf(o.listId) !== -1) return false;
+    return isTodoList(o.lists, cfg, o.listId) || o.listId === progressListId(o.lists, cfg);
+  }
+
   var Core = {
     PRIORITIES: PRIORITIES,
+    leftDoneTicked: leftDoneTicked,
     NEXT_SPRINT: NEXT_SPRINT,
     prioRank: prioRank,
     byLevel: byLevel,
