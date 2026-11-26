@@ -12,6 +12,7 @@ It adds a **"TASKS"** section to the back of an epic card:
   - **☰ Checklist**: a card "Epic / Checklist" in TO DO with that person as its member and a checklist of just their items (priority emoji and due dates kept, no @mentions). If they already have such a card for this checklist, the items are added to it.
   - **▤ Each**: separate cards, as the chips do.
   People not tagged in the checklist are not listed. When every open item has a card, the button stays, grey and inactive.
+- **"＋ All cards (n) ▾"** next to ⟳ ⚙ (epics with two or more checklists): the same menu for the whole epic, n and every person's count summed over all checklists. **☰ Checklist** makes a card per checklist for each person (as if "☰ Checklist" was pressed on every checklist: two checklists → two cards), **▤ Each** a card per item. Items that already have a card are skipped, so pressing it again makes no duplicates; one progress bar per row covers all the checklists.
 
 And **story points** for the board (turned on per board in settings):
 
@@ -172,4 +173,5 @@ python3 test/run_ui.py            # TASKS section UI against a mocked Trello (ne
 python3 test/run_sp.py            # story points UI against a mocked Trello
 python3 test/run_kid.py           # "＋ Cards", checklist cards, epic ↔ card sync, points per checklist item
 python3 test/run_sprint.py        # sprints: TO DO SP<n> columns made on demand, the panel's sprint switcher, copied epics
+python3 test/run_all.py           # "＋ All cards": cards for every checklist of the epic at once
 ```
