@@ -224,6 +224,10 @@ with sync_playwright() as p:
     check(section_for("S.plugin[S.card.id] = { pts: { 'x': 1 } }") == "STORY POINTS", "outside TO DO but already estimated by items: STORY POINTS")
     check(section_for("delete S.plugin[S.card.id]; S.card.desc = '[Q4 launches](https://trello.com/c/AbC/1-epic) / C'") == "STORY POINTS",
           "a card made from an epic (description links to it), out of TO DO, not estimated, no 'kid' mark: STORY POINTS")
+    act = cp.evaluate("""async () => { const S = window.__state; S.card.desc = ''; S.plugin[S.card.id] = { pts: { [S.card.checklists[0].checkItems[0].id.slice(-8)]: 3 } };
+      S.card.customFieldItems = [{ idCustomField: 'f_sp', value: { number: '3' } }];
+      const s = await window.__caps['card-back-section'](TrelloPowerUp.iframe()); return s.action && s.action.text; }""")
+    check(act == "⚡ 3", f"the card's points on the title's line (section action): {act!r}")
     cp.close()
 
     # ---------- STORY POINTS section on a TO DO card with a checklist ----------
@@ -233,7 +237,11 @@ with sync_playwright() as p:
     CARD = "cardT1".rjust(24, "0")
     field = lambda: sp.evaluate("(window.__cardById('" + CARD + "').customFieldItems || []).filter(x => x.idCustomField === 'f_sp').map(x => x.value.number)[0] || null")
     sp.wait_for_function("window.__cardById('" + CARD + "').checklists[0].checkItems[1].name === 'Copy'")
-    sp.wait_for_function("document.querySelector('.cp-sum') && document.querySelector('.cp-sum').textContent.indexOf('2') !== -1")
+    sp.wait_for_function("[...document.querySelectorAll('.cp-sp')].some(b => b.textContent.indexOf('2') !== -1)")
+    check(sp.locator(".cp-sum").count() == 0 and "Card points = sum" not in sp.inner_text("body"), "no sum line in the section (the sum is next to the title)")
+    xs = sp.evaluate("[...document.querySelectorAll('.cp-sp')].map(b => Math.round(b.getBoundingClientRect().left))")
+    ws = sp.evaluate("[...document.querySelectorAll('.cp-st')].map(b => Math.round(b.getBoundingClientRect().width))")
+    check(len(set(xs)) == 1 and len(set(ws)) == 1, f"points in one column on the right, status buttons of one width: {xs} {ws}")
     check(sp.evaluate("window.__state.plugin['" + CARD + "'].pts") == {"00kitem2": 2}, "'[2]' typed into an item moved into the card's data")
     check(field() == "2", f"card points = sum of open items: {field()}")
     def choose(pg, row, cls, label):
