@@ -86,9 +86,24 @@ test('summarize one list: total once per card, each member gets full points', ()
   assert.equal(s.total, 5.5);
   assert.equal(s.cards, 4);
   assert.equal(s.none, 1);
-  assert.deepEqual(s.by.m1, { points: 5, cards: 2, none: 0 });
-  assert.deepEqual(s.by.m2, { points: 2, cards: 2, none: 1 });
-  assert.deepEqual(s.by._none, { points: 0.5, cards: 1, none: 0 });
+  assert.deepEqual(s.by.m1, { points: 5, cards: 2, tasks: 2, none: 0 });
+  assert.deepEqual(s.by.m2, { points: 2, cards: 2, tasks: 2, none: 1 });
+  assert.deepEqual(s.by._none, { points: 0.5, cards: 1, tasks: 1, none: 0 });
+});
+
+test('tasks: a card without a checklist is one task, a card with one counts its open items', () => {
+  const cards = [
+    { idList: 'todo', name: 'Plain', idMembers: ['m1'] },
+    { idList: 'todo', name: 'Epic / Spring', idMembers: ['m1'], badges: { checkItems: 3, checkItemsChecked: 1 } },
+    { idList: 'todo', name: 'All ticked', idMembers: ['m2'], badges: { checkItems: 2, checkItemsChecked: 2 } },
+  ];
+  const s = P.summarize(cards, 'f_sp', 'todo');
+  assert.equal(s.cards, 3);
+  assert.equal(s.tasks, 3);
+  assert.equal(s.by.m1.tasks, 3);
+  assert.equal(s.by.m2.tasks, 0);
+  assert.equal(P.tasksWord(1), '1 task');
+  assert.equal(P.tasksWord(5), '5 tasks');
 });
 
 test('migrate does nothing without [n] or without the field', async () => {
