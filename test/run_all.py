@@ -91,16 +91,16 @@ with sync_playwright() as p:
     check(page.locator(".all-menu").count() == 0, "Esc closes the menu")
     page.close()
 
-    # ⏭️ NS (next sprint) items are not offered by "＋ Cards" / "＋ All cards"; a whole NS checklist neither
+    # ↪️ NS (next sprint) items are not offered by "＋ Cards" / "＋ All cards"; a whole NS checklist neither
     ns = open_page("section.html", """S => { S.me = { id: 'mem' + '1'.padStart(21, '0'), username: 'maria_petrenko', fullName: 'Maria Petrenko' };
-      const it = S.checklists[0].checkItems.find(i => i.name.indexOf('Approve with legal') !== -1); it.name = '⏭️ ' + it.name; }""")
+      const it = S.checklists[0].checkItems.find(i => i.name.indexOf('Approve with legal') !== -1); it.name = '↪️ ' + it.name; }""")
     ns.wait_for_selector(".cl")
     check(ns.locator(".my-btn").all_inner_texts() == ["＋ Cards (5) ▾", "＋ Cards (4) ▾"] and ns.locator(".all-btn").inner_text() == "＋ All cards (9) ▾",
           f"an NS item is skipped: {ns.locator('.my-btn').all_inner_texts()} {ns.locator('.all-btn').inner_text()}")
     check(ns.locator(".chip.add").count() > 0 and "NS" in ns.locator("select.prio").nth(1).inner_text(), "its chip is still there; NS is in the priority list")
     ns.close()
     ns2 = open_page("section.html", """S => { S.me = { id: 'mem' + '1'.padStart(21, '0'), username: 'maria_petrenko', fullName: 'Maria Petrenko' };
-      S.checklists[1].name = '⏭️ ' + S.checklists[1].name; }""")
+      S.checklists[1].name = '↪️ ' + S.checklists[1].name; }""")
     ns2.wait_for_selector(".cl")
     btns = ns2.locator(".my-btn").all_inner_texts()
     check(btns[1] == "＋ Cards (1) ▾" and ns2.locator(".all-btn").inner_text() == "＋ All cards (7) ▾",

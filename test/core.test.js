@@ -287,16 +287,18 @@ test('sprints: list names, TO DO SP columns, order across the new year', () => {
   assert.equal(C.progressListId([{ id: 't48', name: 'TO DO SP48' }, { id: 'p', name: 'In progress' }], cfg), 'p');
 });
 
-test('priorities: ⚪ P4 low and ⏭️ NS next sprint', () => {
+test('priorities: ⚪ P4 low and ↪️ NS next sprint', () => {
   assert.equal(C.parsePriority('⚪ Banner'), 4);
   assert.equal(C.parsePriority('⚪️ Banner'), 4, 'with the variation selector too');
-  assert.equal(C.parsePriority('⏭️ Release notes'), 5);
-  assert.equal(C.parsePriority('⏭ Release notes'), 5, 'without the variation selector too');
-  assert.equal(C.withPriority('🔴 Release notes', 5), '⏭️ Release notes');
-  assert.equal(C.withPriority('⏭ Release notes', 1), '🔴 Release notes', 'replaced as a whole');
-  assert.equal(C.withPriority('⏭️ Release notes', 0), 'Release notes');
+  assert.equal(C.parsePriority('↪️ Release notes'), 5);
+  assert.equal(C.parsePriority('↪ Release notes'), 5, 'without the variation selector too');
+  assert.equal(C.parsePriority('⏭️ Release notes'), 5, 'the first NS emoji (⏭) still counts');
+  assert.equal(C.withPriority('⏭️ Release notes', 5), '↪️ Release notes', 'and becomes ↪️');
+  assert.equal(C.withPriority('🔴 Release notes', 5), '↪️ Release notes');
+  assert.equal(C.withPriority('↪ Release notes', 1), '🔴 Release notes', 'replaced as a whole');
+  assert.equal(C.withPriority('↪️ Release notes', 0), 'Release notes');
   assert.equal(C.withPriority('Banner', 4), '⚪ Banner');
-  const items = ['⏭️ a', 'b', '⚪ c', '🟢 d', '🔴 e'].map((name, i) => ({ id: String(i), name }));
-  assert.deepEqual(C.sortByPriority(items).map((x) => x.name), ['🔴 e', '🟢 d', '⚪ c', 'b', '⏭️ a'], 'P1 … P4, none, NS last');
-  assert.equal(C.todoCardName('⏭️ Release notes @olga', 'ZYN SDK'), '⏭️ Release notes — ZYN SDK');
+  const items = ['↪️ a', 'b', '⚪ c', '🟢 d', '🔴 e'].map((name, i) => ({ id: String(i), name }));
+  assert.deepEqual(C.sortByPriority(items).map((x) => x.name), ['🔴 e', '🟢 d', '⚪ c', 'b', '↪️ a'], 'P1 … P4, none, NS last');
+  assert.equal(C.todoCardName('↪️ Release notes @olga', 'ZYN SDK'), '↪️ Release notes — ZYN SDK');
 });
