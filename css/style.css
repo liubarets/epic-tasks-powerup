@@ -347,7 +347,21 @@ button.est-chip:disabled { cursor: default; opacity: .55; }
 .cp-cl { font-weight: 600; font-size: 12px; color: #44546f; margin: 8px 0 2px; }
 ul.cp-list { list-style: none; margin: 0; padding: 0; }
 .cp-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--bg-soft); }
+.cp-item:first-child { border-top: 0; }
 .cp-item .cp-name { flex: 1; min-width: 0; }
+/* Points and status on the right, each in its own column: fixed width for the points, the status buttons
+   get the width of the widest one from cardpoints.js (alignStatus). */
+.cp-item button.cp-sp { width: 54px; justify-content: space-between; }
+.cp-item button.cp-st { justify-content: space-between; }
+button.tsel .cv { font-size: 10px; opacity: .65; }
+/* Status in Trello's own colours: TO DO grey, IN PROGRESS blue, DONE green; points in a white frame */
+.cp-item button.cp-st { background: var(--bg-soft); color: #44546f; }
+.cp-item button.cp-st.st-prog { background: var(--blue-soft); color: #0055cc; }
+.cp-item button.cp-st.st-done { background: var(--green-soft); color: #216e4e; }
+.cp-item button.cp-st:hover { filter: brightness(.95); }
+.cp-item button.cp-sp { background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+.cp-item button.cp-sp:hover { background: #f7f8f9; }
+.cp-item button.cp-sp.none { background: #fff7d6; box-shadow: none; }
 /* Trello-like drop-down button */
 button.tsel { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 26px; margin: 0; padding: 0 8px; border: 0; border-radius: 3px;
   background: rgba(9,30,66,.06); color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; }
