@@ -1,4 +1,4 @@
-/* global TrelloPowerUp, EpicCore, EpicAuth, EpicTodo, EpicPoints */
+/* global TrelloPowerUp, EpicCore, EpicAuth, EpicTodo, EpicPoints, EpicDropdown */
 // Card-back section: priorities + "add to TO DO" buttons per assignee for every checklist item,
 // and "＋ Cards" per checklist (one card with a checklist, or a card for each item, for anyone tagged in its items).
 (function () {
@@ -8,7 +8,7 @@
   var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
   var root = document.getElementById('root');
 
-  var ui = { mine: false, hideDone: false, busy: {}, error: null, menu: null };
+  var ui = { mine: false, hideDone: false, busy: {}, error: null, menu: null, jobs: [] };
   var data = null;
 
   function api(method, path, params) { return Todo.api(t, method, path, params); }
@@ -79,9 +79,9 @@
         c.name = Core.withPriority(c.name, level);
         ops.push({ method: 'PUT', path: '/cards/' + c.id, params: { name: c.name } });
       });
-    // The item in people's checklist cards gets the new emoji too.
+    // The item in people's checklist cards gets the new emoji too; the rest of its name (maybe edited there) stays.
     infos.filter(function (i) { return i.kind === 'kid'; }).forEach(function (i) {
-      i.item.name = Core.kidItemName(newName, window.EpicPoints ? EpicPoints.strip : null);
+      i.item.name = Core.withPriority(i.item.name, level);
       ops.push({ method: 'PUT', path: '/cards/' + i.card.id + '/checkItem/' + i.item.id, params: { name: i.item.name } });
     });
     f.item.name = newName;
@@ -126,7 +126,8 @@
       // The person has a card: the chip shows its status; a click opens a menu to change it (anyone can).
       var st = Todo.statusOf(data, info);
       var kid = info.kind === 'kid';
-      var label = st === 'done' ? (kid ? '✓' : 'DONE') : esc(data.listName[info.card.idList] || 'TO DO');
+      // The list's own name, as on the board ("In progress", "TO DO"), or DONE.
+      var label = st === 'done' ? 'DONE' : esc(data.listName[st === 'prog' ? Todo.progressListId(data) : st === 'todo' ? data.cfg.todoListId : info.card.idList] || '');
       return '<button class="' + cls + (st === 'done' ? ' done' : ' linked') + (kid ? ' kid' : '') + '" data-action="status" data-item="' + esc(item.id) +
         '" data-member="' + esc(a.id) + '" title="Change status">' + who +
         ' <span class="st">' + (kid ? '☰ ' : '✓ ') + label + ' ▾</span></button>';
@@ -136,19 +137,22 @@
       '" title="Create a TO DO card for @' + esc(a.username) + '">' + who + ' <span class="st">＋ TO DO</span></button>';
   }
 
-  // Trello's own drop-down list (t.popup with items): TO DO / IN PROGRESS / DONE.
-  function statusMenu(e, itemId, memberId) {
+  function statusLabel(st, info) {
+    var up = function (x) { return String(x).toUpperCase(); };
+    if (st === 'done') return 'DONE';
+    if (st === 'prog') return up(data.listName[Todo.progressListId(data)] || 'IN PROGRESS');
+    if (st === 'todo') return up(data.listName[data.cfg.todoListId] || 'TO DO');
+    return up(data.listName[info.card.idList] || '');
+  }
+
+  // A drop-down list like Trello's (js/dropdown.js), opening down from the chip: TO DO / IN PROGRESS / DONE.
+  function statusMenu(el, itemId, memberId) {
     var info = Todo.linkInfo(data, itemId, memberId);
     if (!info) return null;
     var cur = Todo.statusOf(data, info), prog = Todo.progressListId(data);
-    var up = function (x) { return String(x).toUpperCase(); };
-    var opts = [['todo', up(data.listName[data.cfg.todoListId] || 'TO DO')]]
-      .concat(prog ? [['prog', up(data.listName[prog] || 'IN PROGRESS')]] : []).concat([['done', 'DONE']]);
-    return t.popup({ title: 'Status', mouseEvent: e, items: opts.map(function (o) {
-      return { text: (cur === o[0] ? '✓ ' : '') + o[1], callback: function (tt) {
-        tt.closePopup();
-        if (cur !== o[0]) changeStatus(itemId, memberId, o[0]);
-      } };
+    var opts = [['todo', statusLabel('todo', info)]].concat(prog ? [['prog', statusLabel('prog', info)]] : []).concat([['done', 'DONE']]);
+    return EpicDropdown.open(el, { title: 'Status', resize: resize, items: opts.map(function (o) {
+      return { text: o[1], checked: cur === o[0], onPick: function () { if (cur !== o[0]) changeStatus(itemId, memberId, o[0]); } };
     }) });
   }
 
@@ -189,10 +193,19 @@
       '<div class="chips">' + chips + '</div></div></li>';
   }
 
+  function activeJob(j) { return j.state === 'wait' || j.state === 'run'; }
+  function pct(j) { return j.total ? Math.round(j.n / j.total * 100) : 0; }
+
   // "＋ Cards (n) ▾": open items of this checklist without a card yet, for anyone tagged in them.
   // Anyone on the board can create the cards for any of these people (no separate "manager" role).
+  // While cards are being made the button shows how far it got.
   function myCardsHtml(cl) {
-    if (ui.busy['my:' + cl.id]) return '<span class="my-busy">Creating cards…</span>';
+    var act = ui.jobs.filter(function (j) { return j.clId === cl.id && activeJob(j); });
+    if (act.length) {
+      var run = act.filter(function (j) { return j.state === 'run'; })[0];
+      return '<button class="my-btn" data-action="mymenu" data-cl="' + esc(cl.id) + '" aria-expanded="' + (ui.menu === cl.id) + '" title="Creating cards">' +
+        'Creating… <span class="my-bprog"><span style="width:' + (run ? pct(run) : 0) + '%"></span></span></button>';
+    }
     var n = Todo.pendingInChecklist(data, cl).length;
     if (!n) return '<button class="my-btn off" disabled title="Every open item already has a card">＋ Cards</button>';
     return '<button class="my-btn" data-action="mymenu" data-cl="' + esc(cl.id) + '" aria-expanded="' + (ui.menu === cl.id) + '"' +
@@ -219,19 +232,88 @@
       b('mysep', '▤ Each', 'A separate TO DO card for every item') + '</div>';
   }
 
+  // A row of a job: waiting, a progress bar while the cards are made, then "✓ n added".
+  function jobRow(j) {
+    var what = j.kind === 'mykid' ? '☰' : '▤';
+    var right;
+    if (j.state === 'wait') right = '<span class="my-prog wait"><span></span></span><span class="my-pn">Waiting…</span>';
+    else if (j.state === 'run') right = '<span class="my-prog"><span style="width:' + pct(j) + '%"></span></span><span class="my-pn">' + what + ' ' + j.n + ' / ' + j.total + '</span>';
+    else if (j.state === 'ok') right = '<span class="my-ok">✓ ' + what + ' ' + (j.total === 1 ? '1 item' : j.total + ' items') + ' added</span>';
+    else right = '<span class="my-pn">Failed</span>';
+    return '<div class="my-row job' + (j.member === '*' ? ' all' : '') + '" data-job="' + j.id + '">' + j.av + '<span class="my-name">' + j.label + '</span>' + right + '</div>';
+  }
+
+  // The menu stays open while cards are made, so cards for several people can be started one after another
+  // without reopening it; it closes with ×, Esc or a click anywhere else.
   function myMenuHtml(cl) {
     if (ui.menu !== cl.id) return '';
     var people = Todo.pendingPeople(data, cl);
-    if (!people.length) return '';
-    var meId = data.me && data.me.id, total = 0;
+    var jobs = ui.jobs.filter(function (j) { return j.clId === cl.id; });
+    var allJob = jobs.filter(function (j) { return j.member === '*' && activeJob(j); })[0];
+    var meId = data.me && data.me.id, total = 0, inRow = {};
     var rows = people.map(function (p) {
       total += p.count;
       var nm = p.member.id === meId ? 'Me' : esc(p.member.fullName || p.member.username || 'Unknown');
+      var j = jobs.filter(function (x) { return x.member === p.member.id && activeJob(x); })[0];
+      if (j) { inRow[j.id] = 1; return jobRow(j); }
+      if (allJob) return '<div class="my-row">' + avatarHtml(p.member) + '<span class="my-name">' + nm + '</span><span class="my-pn">With everyone…</span></div>';
       return personRow(cl, nm, avatarHtml(p.member), p.count, p.member.id);
     }).join('');
-    if (people.length > 1) rows += personRow(cl, '<b>Everyone</b>', '<span class="my-av all">∗</span>', total, '*', ' all');
+    if (people.length > 1 && !allJob) rows += personRow(cl, '<b>Everyone</b>', '<span class="my-av all">∗</span>', total, '*', ' all');
+    rows += jobs.filter(function (j) { return !inRow[j.id]; }).map(jobRow).join('');
+    if (!rows) rows = '<div class="my-empty">Every open item has a card ✓</div>';
     return '<div class="my-menu" role="menu">' +
-      '<div class="my-menu-head">Open items without a card in “' + esc(cl.name) + '”</div>' + rows + '</div>';
+      '<div class="my-menu-head">Open items without a card in “' + esc(Core.withPriority(cl.name, 0)) + '”' +
+      '<button class="my-x" data-action="myclose" aria-label="Close" title="Close">×</button></div>' + rows + '</div>';
+  }
+
+  function closeMenu() {
+    if (!ui.menu) return;
+    ui.menu = null;
+    ui.jobs = ui.jobs.filter(activeJob);
+    render();
+  }
+
+  // Jobs from the menu run one after another (each rewrites the epic's Teamload data).
+  var jobSeq = 0, pumping = false;
+  function queueJob(kind, clId, member) {
+    var cl = data.checklists.filter(function (x) { return x.id === clId; })[0];
+    if (!cl) return;
+    var label, av;
+    if (member === '*') { label = '<b>Everyone</b>'; av = '<span class="my-av all">∗</span>'; }
+    else {
+      var m = (data.board.members || []).filter(function (x) { return x.id === member; })[0] || { id: member };
+      label = data.me && member === data.me.id ? 'Me' : esc(m.fullName || m.username || 'Unknown');
+      av = avatarHtml(m);
+    }
+    ui.jobs.push({ id: ++jobSeq, kind: kind, clId: clId, member: member, label: label, av: av, state: 'wait', n: 0, total: 0 });
+    ui.busy['my:' + clId] = 1;
+    render();
+    pump();
+  }
+
+  function pump() {
+    if (pumping) return;
+    var j = ui.jobs.filter(function (x) { return x.state === 'wait'; })[0];
+    if (!j) {
+      Object.keys(ui.busy).forEach(function (k) { if (k.indexOf('my:') === 0) delete ui.busy[k]; });
+      run(Promise.resolve()).then(render);
+      return;
+    }
+    pumping = true;
+    j.state = 'run';
+    render();
+    var tell = function (n, total) { j.n = n; j.total = total; render(); };
+    var p = j.kind === 'mykid' ? Todo.addChecklistCards(t, data, j.clId, j.member, tell) : Todo.addSeparateCards(t, data, j.clId, j.member, tell);
+    Promise.resolve(p).then(function () {
+      j.state = 'ok'; j.n = j.total;
+    }, function (e) {
+      j.state = 'err';
+      ui.error = (e && e.message) || String(e);
+    }).then(function () {
+      pumping = false;
+      pump();
+    });
   }
 
   // Priority of a whole checklist (a task of the epic): the emoji at the start of the checklist name.
@@ -248,9 +330,17 @@
     var cl = data.checklists.filter(function (x) { return x.id === clId; })[0];
     if (!cl) return Promise.resolve();
     var name = Core.withPriority(cl.name, level);
+    var ops = [{ method: 'PUT', path: '/checklists/' + clId, params: { name: name } }];
+    // People's checklist cards "Epic / Checklist" get the new emoji; the rest of their name stays as it is.
+    Todo.kidCardsOf(data, cl).forEach(function (c) {
+      var nn = Core.withKidCardPriority(c.name, level);
+      if (nn === c.name) return;
+      c.name = nn;
+      ops.push({ method: 'PUT', path: '/cards/' + c.id, params: { name: nn } });
+    });
     cl.name = name;
     render();
-    return runOps([{ method: 'PUT', path: '/checklists/' + clId, params: { name: name } }]);
+    return runOps(ops);
   }
 
   function checklistHtml(cl) {
@@ -283,6 +373,8 @@
       '<button class="icon" data-action="refresh" title="Refresh">⟳</button>' +
       '<button class="icon" data-action="settings" title="Settings">⚙</button></div>';
     if (ui.error) html += '<div class="error">' + esc(ui.error) + '</div>';
+    // A re-render replaces the buttons: an open drop-down would point at nothing.
+    if (window.EpicDropdown) EpicDropdown.close();
     if (!d.cfg.todoListId) {
       html += '<div class="notice">Choose the list for TO DO cards. ' +
         '<button class="link" data-action="settings">Open settings</button></div>';
@@ -318,7 +410,7 @@
       if (!ok) { data = null; renderAuth(); return; }
       return Todo.load(t).then(function (d) {
         data = d;
-        // Keeps the epic and the cards in step: new items into people's checklist cards, names and dates
+        // Keeps the epic and the cards in step: new items into people's checklist cards, priorities and dates
         // into the cards, ticks both ways (see todo.js).
         return Todo.sync(t, d);
       }).then(render);
@@ -358,7 +450,14 @@
       run(Todo.addToTodo(t, data, el.getAttribute('data-item'), el.getAttribute('data-member')))
         .then(function () { delete ui.busy[key]; render(); });
     } else if (a === 'status') {
-      statusMenu(e, el.getAttribute('data-item'), el.getAttribute('data-member'));
+      var si = el.getAttribute('data-item'), sm = el.getAttribute('data-member');
+      if (ui.menu) {
+        // Close the "＋ Cards" menu first (the page shifts), then open the list under the chip where it is now.
+        ui.menu = null; ui.jobs = ui.jobs.filter(activeJob); render();
+        el = root.querySelector('[data-action=status][data-item="' + si + '"][data-member="' + sm + '"]');
+        if (!el) return;
+      }
+      statusMenu(el, si, sm);
     } else if (a === 'assign') {
       var ak = el.getAttribute('data-item') + ':' + data.me.id;
       if (ui.busy[ak]) return;
@@ -369,25 +468,23 @@
       run(sortChecklist(el.getAttribute('data-cl')));
     } else if (a === 'mymenu') {
       var mc = el.getAttribute('data-cl');
-      ui.menu = ui.menu === mc ? null : mc;
-      render();
+      if (ui.menu === mc) closeMenu();
+      else { ui.menu = mc; ui.jobs = ui.jobs.filter(activeJob); render(); }
+    } else if (a === 'myclose') {
+      closeMenu();
     } else if (a === 'mykid' || a === 'mysep') {
-      var clId = el.getAttribute('data-cl'), bk = 'my:' + clId, who = el.getAttribute('data-member') || data.me.id;
-      if (ui.busy[bk]) return;
-      ui.menu = null; ui.busy[bk] = 1; render();
-      var job = a === 'mykid' ? Todo.addChecklistCards(t, data, clId, who) : Todo.addSeparateCards(t, data, clId, who);
-      var free = function () { delete ui.busy[bk]; };
-      run(job.then(free, function (err) { free(); throw err; })).then(render);
+      queueJob(a, el.getAttribute('data-cl'), el.getAttribute('data-member') || data.me.id);
     }
   });
 
-  // A click outside the "My cards" menu closes it.
+  // A click outside the "＋ Cards" menu, Esc, or a click outside the iframe (it loses focus) closes it.
   document.addEventListener('click', function (e) {
-    if (ui.menu && !e.target.closest('.my-menu, .my-btn')) { ui.menu = null; render(); }
+    if (ui.menu && !e.target.closest('.my-menu, .my-btn')) closeMenu();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && ui.menu) { ui.menu = null; render(); }
+    if (e.key === 'Escape' && ui.menu) closeMenu();
   });
+  window.addEventListener('blur', function () { if (ui.menu) closeMenu(); });
 
   root.addEventListener('change', function (e) {
     var el = e.target;
