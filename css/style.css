@@ -133,6 +133,13 @@ select.prio { flex: none; width: 64px; height: 24px; min-height: 0; margin: 0; p
 .chip.linked .st { color: var(--blue); }
 .chip.done { background: var(--green-soft); border-color: transparent; }
 .chip.done .st { color: var(--green); }
+/* A checklist card moved out of Done while its items are still ticked */
+.chip.warn { background: #fff7d6; border-color: #f5cd47; }
+.chip.warn .st { color: #7f5f01; }
+.warn-left { display: flex; gap: 8px; align-items: flex-start; background: #fff7d6; border: 1px solid #f5cd47; border-radius: 6px;
+  padding: 8px 10px; margin: 2px 0 8px; font-size: 12px; line-height: 16px; color: var(--text); }
+.warn-left b { font-weight: 600; }
+.warn-left .warn-i { color: #a54800; font-size: 14px; line-height: 16px; }
 .chip.me { box-shadow: inset 0 0 0 1px var(--blue); }
 .chip.ghost { border-style: dashed; color: var(--muted); }
 .chip.ghost:hover { color: var(--blue); border-color: var(--blue); }
