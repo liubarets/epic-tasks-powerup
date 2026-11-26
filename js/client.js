@@ -249,7 +249,7 @@
     // A section on the back of cards that have checklists:
     // - "STORY POINTS" (a scale under every item) on a person's checklist card, on a card in the TO DO list,
     //   and on any card already estimated item by item — when story points are on;
-    // - "TASKS" (priorities, ＋ TO DO, ＋ My cards) on every other card, i.e. on epics.
+    // - "TASKS" (priorities, ＋ TO DO, ＋ Cards) on every other card, i.e. on epics.
     'card-back-section': function (t) {
       lastT = t;
       return Promise.all([
@@ -269,7 +269,6 @@
           title: 'TASKS',
           icon: ICON,
           content: { type: 'iframe', url: t.signUrl('./section.html'), height: 200 },
-          action: { text: '＋ Add all to TO DO', callback: addAllMenu },
         };
       });
     },

@@ -455,21 +455,58 @@
     });
   }
 
-  // "＋ My cards → One card with a checklist".
-  function addMyChecklistCard(t, d, checklistId) {
+  // "＋ Cards": the people with open items in this checklist that have no card yet, with how many each has.
+  // Only people tagged in those items (board members) are listed; me first, then by name.
+  function pendingPeople(d, cl) {
+    var by = {}, order = [];
+    pendingInChecklist(d, cl).forEach(function (j) {
+      if (!by[j.memberId]) { by[j.memberId] = 0; order.push(j.memberId); }
+      by[j.memberId]++;
+    });
+    var meId = d.me && d.me.id;
+    var people = order.map(function (id) {
+      var m = (d.board.members || []).filter(function (x) { return x.id === id; })[0] || { id: id };
+      return { member: m, count: by[id] };
+    });
+    var name = function (p) { return (p.member.fullName || p.member.username || '').toLowerCase(); };
+    people.sort(function (a, b) {
+      if (a.member.id === meId) return -1;
+      if (b.member.id === meId) return 1;
+      return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
+    });
+    return people;
+  }
+
+  function memberList(d, cl, memberIds) {
+    return memberIds === '*' ? pendingPeople(d, cl).map(function (p) { return p.member.id; }) : [].concat(memberIds);
+  }
+
+  // "＋ Cards → ☰ Checklist": one card "Epic / Checklist" per person with their items (added to their card if it exists).
+  // memberIds: an id, a list of ids, or '*' for everyone with pending items.
+  function addChecklistCards(t, d, checklistId, memberIds) {
     var err = todoListError(d);
     if (err) return Promise.reject(err);
     var cl = d.checklists.filter(function (x) { return x.id === checklistId; })[0];
-    var items = cl ? myPending(d, cl, d.me.id).map(function (j) { return j.item; }) : [];
-    if (!items.length) return Promise.resolve(null);
-    return addToKid(t, d, { checklist: cl, memberId: d.me.id, items: items });
+    if (!cl) return Promise.resolve(null);
+    // One person after another: each step rewrites the epic's "groups".
+    return memberList(d, cl, memberIds).reduce(function (p, mid) {
+      return p.then(function () {
+        var items = myPending(d, cl, mid).map(function (j) { return j.item; });
+        return items.length ? addToKid(t, d, { checklist: cl, memberId: mid, items: items }) : null;
+      });
+    }, Promise.resolve());
   }
 
-  // "＋ My cards → A card for each item".
-  function addMySeparateCards(t, d, checklistId) {
+  // "＋ Cards → ▤ Each": a separate TO DO card per item for the chosen people.
+  function addSeparateCards(t, d, checklistId, memberIds) {
     var cl = d.checklists.filter(function (x) { return x.id === checklistId; })[0];
-    return addMany(t, d, cl ? myPending(d, cl, d.me.id) : [], null);
+    if (!cl) return addMany(t, d, [], null);
+    var ids = memberList(d, cl, memberIds);
+    return addMany(t, d, pendingInChecklist(d, cl).filter(function (j) { return ids.indexOf(j.memberId) !== -1; }), null);
   }
+
+  function addMyChecklistCard(t, d, checklistId) { return addChecklistCards(t, d, checklistId, d.me.id); }
+  function addMySeparateCards(t, d, checklistId) { return addSeparateCards(t, d, checklistId, d.me.id); }
 
   // ---- Keeping the epic and the cards in step (runs when someone opens the epic) ----
 
@@ -653,6 +690,10 @@
     addToTodo: addToTodo,
     addMany: addMany,
     addAllOptions: addAllOptions,
+    pendingInChecklist: pendingInChecklist,
+    pendingPeople: pendingPeople,
+    addChecklistCards: addChecklistCards,
+    addSeparateCards: addSeparateCards,
     jobsFor: jobsFor,
   };
 })(this);

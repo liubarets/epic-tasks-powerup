@@ -1,7 +1,6 @@
 /* global TrelloPowerUp, EpicCore, EpicAuth, EpicTodo, EpicPoints */
 // Card-back section: priorities + "add to TO DO" buttons per assignee for every checklist item,
-// and "＋ My cards" per checklist (one card with a checklist, or a card for each item, for the person who clicks).
-// "Add all to TO DO" lives in the section header (see client.js).
+// and "＋ Cards" per checklist (one card with a checklist, or a card for each item, for anyone tagged in its items).
 (function () {
   'use strict';
   var Core = EpicCore;
@@ -161,29 +160,44 @@
       '<div class="chips">' + chips + '</div></div></li>';
   }
 
-  // "＋ My cards (n) ▾": only for the person who looks, only their open items without a card yet.
+  // "＋ Cards (n) ▾": open items of this checklist without a card yet, for anyone tagged in them.
+  // Anyone on the board can create the cards for any of these people (no separate "manager" role).
   function myCardsHtml(cl) {
-    if (!data.me) return '';
-    if (ui.busy['my:' + cl.id]) return '<span class="my-busy">Creating your cards…</span>';
-    var n = Todo.myPending(data, cl, data.me.id).length;
+    if (ui.busy['my:' + cl.id]) return '<span class="my-busy">Creating cards…</span>';
+    var n = Todo.pendingInChecklist(data, cl).length;
     if (!n) return '';
     return '<button class="my-btn" data-action="mymenu" data-cl="' + esc(cl.id) + '" aria-expanded="' + (ui.menu === cl.id) + '"' +
-      ' title="Create TO DO cards for your items in this checklist">＋ My cards (' + n + ') ▾</button>';
+      ' title="Create TO DO cards for the open items of this checklist">＋ Cards (' + n + ') ▾</button>';
+  }
+
+  function avatarHtml(m) {
+    var ini = ((m.fullName || m.username || '?').split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2)).toUpperCase();
+    if (m.avatarUrl) return '<img class="my-av" src="' + esc(m.avatarUrl + '/30.png') + '" alt="">';
+    return '<span class="my-av">' + esc(ini) + '</span>';
+  }
+
+  function personRow(cl, label, av, count, member, extra) {
+    var b = function (kind, text, title) {
+      return '<button class="my-act" role="menuitem" data-action="' + kind + '" data-cl="' + esc(cl.id) + '" data-member="' + esc(member) + '" title="' + title + '">' + text + '</button>';
+    };
+    return '<div class="my-row' + (extra || '') + '">' + av + '<span class="my-name">' + label + '</span><span class="my-n">' + count + '</span>' +
+      b('mykid', '☰ Checklist', 'One card “Epic / Checklist” with these items (added to the card if it exists)') +
+      b('mysep', '▤ Each', 'A separate TO DO card for every item') + '</div>';
   }
 
   function myMenuHtml(cl) {
-    if (ui.menu !== cl.id || !data.me) return '';
-    var n = Todo.myPending(data, cl, data.me.id).length;
-    if (!n) return '';
-    var mine = Todo.groupCard(data, cl.id, data.me.id);
-    var items = n + ' item' + (n === 1 ? '' : 's');
+    if (ui.menu !== cl.id) return '';
+    var people = Todo.pendingPeople(data, cl);
+    if (!people.length) return '';
+    var meId = data.me && data.me.id, total = 0;
+    var rows = people.map(function (p) {
+      total += p.count;
+      var nm = p.member.id === meId ? 'Me' : esc(p.member.fullName || p.member.username || 'Unknown');
+      return personRow(cl, nm, avatarHtml(p.member), p.count, p.member.id);
+    }).join('');
+    if (people.length > 1) rows += personRow(cl, '<b>Everyone</b>', '<span class="my-av all">∗</span>', total, '*', ' all');
     return '<div class="my-menu" role="menu">' +
-      '<div class="my-menu-head">Your ' + items + ' in “' + esc(cl.name) + '”</div>' +
-      '<button role="menuitem" data-action="mykid" data-cl="' + esc(cl.id) + '"><b>☰ One card with a checklist</b>' +
-        '<small>' + (mine ? 'Adds them to your card “' + esc(mine.name) + '”' : '“' + esc(Core.kidCardName(data.card.name, cl.name)) + '” with ' + items) + '</small></button>' +
-      '<button role="menuitem" data-action="mysep" data-cl="' + esc(cl.id) + '"><b>▤ A card for each item</b>' +
-        '<small>' + n + ' separate card' + (n === 1 ? '' : 's') + ', as the ＋ TO DO chips do</small></button>' +
-      '</div>';
+      '<div class="my-menu-head">Open items without a card in “' + esc(cl.name) + '”</div>' + rows + '</div>';
   }
 
   function checklistHtml(cl) {
@@ -300,10 +314,10 @@
       ui.menu = ui.menu === mc ? null : mc;
       render();
     } else if (a === 'mykid' || a === 'mysep') {
-      var clId = el.getAttribute('data-cl'), bk = 'my:' + clId;
+      var clId = el.getAttribute('data-cl'), bk = 'my:' + clId, who = el.getAttribute('data-member') || data.me.id;
       if (ui.busy[bk]) return;
       ui.menu = null; ui.busy[bk] = 1; render();
-      var job = a === 'mykid' ? Todo.addMyChecklistCard(t, data, clId) : Todo.addMySeparateCards(t, data, clId);
+      var job = a === 'mykid' ? Todo.addChecklistCards(t, data, clId, who) : Todo.addSeparateCards(t, data, clId, who);
       var free = function () { delete ui.busy[bk]; };
       run(job.then(free, function (err) { free(); throw err; })).then(render);
     }
