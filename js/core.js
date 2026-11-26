@@ -282,6 +282,68 @@
     return 'tick-kids';
   }
 
+  // The priority of a checklist card "Epic / Checklist" follows the checklist's priority: the emoji is set
+  // in the part after the last " / " (so an emoji in the epic's name is left alone); the rest of the name,
+  // which people may have edited, stays as it is.
+  function withKidCardPriority(cardName, level) {
+    var s = String(cardName || '');
+    var i = s.lastIndexOf(' / ');
+    if (i === -1) return withPriority(s, level);
+    return s.slice(0, i + 3) + withPriority(s.slice(i + 3), level);
+  }
+  function kidCardPriority(cardName) {
+    var s = String(cardName || '');
+    var i = s.lastIndexOf(' / ');
+    return parsePriority(i === -1 ? s : s.slice(i + 3));
+  }
+
+  // ---- Status of an item (TO DO / IN PROGRESS / DONE) ----
+
+  // The "in progress" list: the board's list between the TO DO list and the first Done list
+  // (preferring one named like "progress" / "doing"); null when the board has none.
+  function progressListId(lists, cfg) {
+    var ls = lists || [], done = (cfg && cfg.doneListIds) || [], todo = cfg && cfg.todoListId;
+    var ti = -1, di = ls.length;
+    ls.forEach(function (l, i) { if (l.id === todo) ti = i; });
+    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
+    var between = ti === -1 ? [] : ls.slice(ti + 1, di).filter(function (l) { return done.indexOf(l.id) === -1; });
+    var named = function (l) { return /progress|doing|в робот|в процес/i.test(l.name || ''); };
+    var pick = between.filter(named)[0] || between[0] ||
+      ls.filter(function (l) { return named(l) && l.id !== todo && done.indexOf(l.id) === -1; })[0];
+    return pick ? pick.id : null;
+  }
+
+  // An item in a card with a checklist has its own status: DONE when ticked (or when the whole card is in a
+  // Done list), IN PROGRESS when marked so (Teamload data "st" on the card), else TO DO.
+  function itemStatus(cardListId, item, inProgress, doneListIds) {
+    if ((doneListIds || []).indexOf(cardListId) !== -1 || (item && item.state === 'complete')) return 'done';
+    return inProgress ? 'prog' : 'todo';
+  }
+
+  // What changes when one item of a card with a checklist gets a new status. Other items keep theirs
+  // (in a card that sits in Done they all count as done, so they get ticked).
+  //   o = { listId, items: [{ id, state, prog }], itemId, status: 'todo'|'prog'|'done', todoListId, progListId, doneListIds }
+  // Returns { items: [{ id, state, prog }] (all items, after the change), moveTo: list id or null }.
+  // The card moves: to IN PROGRESS when an item starts and the card is in TO DO or Done; to Done when every
+  // item is done; back to TO DO when an item of a card in Done is reopened as TO DO.
+  function statusPlan(o) {
+    var done = o.doneListIds || [], inDone = done.indexOf(o.listId) !== -1;
+    var items = (o.items || []).map(function (it) {
+      if (it.id === o.itemId) return { id: it.id, state: o.status === 'done' ? 'complete' : 'incomplete', prog: o.status === 'prog' };
+      return { id: it.id, state: inDone ? 'complete' : it.state, prog: inDone || it.state === 'complete' ? false : !!it.prog };
+    });
+    var moveTo = null;
+    if (o.status === 'done') {
+      if (items.length && items.every(function (it) { return it.state === 'complete'; }) && !inDone) moveTo = done[0] || null;
+    } else if (o.status === 'prog') {
+      if (inDone || o.listId === o.todoListId) moveTo = o.progListId || null;
+    } else if (inDone) {
+      moveTo = o.todoListId || null;
+    }
+    if (moveTo === o.listId) moveTo = null;
+    return { items: items, moveTo: moveTo };
+  }
+
   var Core = {
     PRIORITIES: PRIORITIES,
     byLevel: byLevel,
@@ -315,6 +377,11 @@
     kidCardName: kidCardName,
     kidItemName: kidItemName,
     tickDecision: tickDecision,
+    withKidCardPriority: withKidCardPriority,
+    kidCardPriority: kidCardPriority,
+    progressListId: progressListId,
+    itemStatus: itemStatus,
+    statusPlan: statusPlan,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Core;
