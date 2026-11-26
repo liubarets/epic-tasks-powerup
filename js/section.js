@@ -89,6 +89,16 @@
     return runOps(ops);
   }
 
+  // "＋ Assign to me": only adds my @username to the item. Cards are made later with the chip or "＋ Cards".
+  function assignToMe(itemId) {
+    var f = Todo.findItem(data, itemId);
+    if (!f || !data.me || !data.me.username) return Promise.resolve();
+    var newName = f.item.name.replace(/\s+$/, '') + ' @' + data.me.username;
+    f.item.name = newName;
+    render();
+    return runOps([{ method: 'PUT', path: '/cards/' + data.card.id + '/checkItem/' + itemId, params: { name: newName } }]);
+  }
+
   function sortChecklist(clId) {
     var cl = data.checklists.filter(function (c) { return c.id === clId; })[0];
     if (!cl) return Promise.resolve();
@@ -149,8 +159,8 @@
     if (!mine && !done && data.me) {
       var bk = item.id + ':' + data.me.id;
       chips += ui.busy[bk] ? '<span class="chip busy">…</span>' :
-        '<button class="chip ghost" data-action="todo" data-item="' + esc(item.id) + '" data-member="' + esc(data.me.id) +
-        '">＋ Assign to me</button>';
+        '<button class="chip ghost" data-action="assign" data-item="' + esc(item.id) + '"' +
+        ' title="Add @' + esc(data.me.username) + ' to this item (no TO DO card yet)">＋ Assign to me</button>';
     }
     var due = item.due ? '<span class="due' + (!done && new Date(item.due) < new Date() ? ' overdue' : '') + '">' + fmtDate(item.due) + '</span>' : '';
 
@@ -306,6 +316,11 @@
       ui.busy[key] = 1; render();
       run(Todo.addToTodo(t, data, el.getAttribute('data-item'), el.getAttribute('data-member')))
         .then(function () { delete ui.busy[key]; render(); });
+    } else if (a === 'assign') {
+      var ak = el.getAttribute('data-item') + ':' + data.me.id;
+      if (ui.busy[ak]) return;
+      ui.busy[ak] = 1; render();
+      run(assignToMe(el.getAttribute('data-item'))).then(function () { delete ui.busy[ak]; render(); });
     } else if (a === 'sort') {
       el.disabled = true; el.textContent = 'Sorting…';
       run(sortChecklist(el.getAttribute('data-cl')));
