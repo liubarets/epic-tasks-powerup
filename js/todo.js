@@ -246,7 +246,7 @@
   }
 
   // Creates one TO DO card for (item, member); resolves with its shortLink.
-  // The link to the epic is attached in the same request (urlSource); a separate call is only a fallback.
+  // Nothing is attached to the card (Trello then shows no Attachments section): the epic is linked from the description.
   function createTodoCard(t, d, item, checklist, memberId, pos) {
     return api(t, 'POST', '/cards', {
       idList: d.cfg.todoListId,
@@ -255,17 +255,13 @@
       idMembers: memberId,
       due: item.due || undefined,
       pos: pos != null ? pos : (d.cfg.position === 'bottom' ? 'bottom' : 'top'),
-      urlSource: d.card.url,
     }).then(function (created) {
       // Known at once, so a next job on this page (or a refresh with lagging data) doesn't add it again.
       d.linked = d.linked || {};
       d.linked[created.shortLink] = { id: created.id, shortLink: created.shortLink, name: created.name || '', idList: d.cfg.todoListId,
         closed: false, idMembers: [memberId], desc: created.desc || '' };
       recentLinks[Core.linkKey(item.id, memberId)] = created.shortLink;
-      if (created.badges && created.badges.attachments > 0) return created.shortLink;
-      return api(t, 'POST', '/cards/' + created.id + '/attachments', { url: d.card.url, name: d.card.name })
-        .catch(function () { /* link back is nice-to-have */ })
-        .then(function () { return created.shortLink; });
+      return created.shortLink;
     });
   }
 
@@ -378,16 +374,12 @@
       desc: Core.todoCardDesc(d.card, cl.name),
       idMembers: memberId,
       pos: pos != null ? pos : (d.cfg.position === 'bottom' ? 'bottom' : 'top'),
-      urlSource: d.card.url,
     }).then(function (created) {
       var c = { id: created.id, shortLink: created.shortLink, name: created.name, desc: created.desc || '', idList: d.cfg.todoListId,
         closed: false, idMembers: [memberId], checklists: [], customFieldItems: [] };
       d.kids = d.kids || {};
       d.kids[c.shortLink] = c;
-      var attach = created.badges && created.badges.attachments > 0 ? null
-        : api(t, 'POST', '/cards/' + created.id + '/attachments', { url: d.card.url, name: d.card.name }).catch(function () {});
       return Promise.all([
-        attach,
         // The card knows its epic: its TASKS section is not shown and it is estimated item by item.
         Promise.resolve(t.set(c.id, 'shared', 'kid', d.card.id)).catch(function () {}),
         saveGroup(t, d, Core.groupKey(cl.id, memberId), c.shortLink, {}),
