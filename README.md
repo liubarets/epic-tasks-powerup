@@ -6,13 +6,12 @@ It adds a **"TASKS"** section to the back of an epic card:
 
 - A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3) and a "↕ Sort by priority" button.
 - A chip for **every assignee** next to each item: `@username ＋ TO DO`. A click creates a card in your TO DO list assigned to that person. **The item stays in the epic.**
-- After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. Clicking the chip opens the card.
+- After that the chip shows the card's status: `✓ TO DO`, `✓ IN PROGRESS`, `✓ DONE`. A click opens a small menu where anyone can change the status (TO DO / In progress / DONE) or open the card. A separate card moves to that list. For an item in a checklist card: In progress moves the whole card out of TO DO; DONE ticks the item, and when all of that person's items in the card are ticked the card moves to Done. The in-progress list is the board's list between TO DO and the first Done list (one named like "progress" is preferred).
 - "＋ Assign to me": adds your @username to an item you are not mentioned in. It does not create a TO DO card: use your chip or "＋ Cards" for that.
 - **"＋ Cards (n) ▾"** in a checklist header: n = open items × assignees of that checklist with no card yet. Anyone can use it, for themselves or for others. The menu has a row per person tagged in those items (me first, with their count) and an **Everyone** row; each row has two buttons:
   - **☰ Checklist**: a card "Epic / Checklist" in TO DO with that person as its member and a checklist of just their items (priority emoji and due dates kept, no @mentions). If they already have such a card for this checklist, the items are added to it.
   - **▤ Each**: separate cards, as the chips do.
-  People not tagged in the checklist are not listed.
-- "Only mine" and "Hide completed" filters, open P1 counter.
+  People not tagged in the checklist are not listed. When every open item has a card, the button stays, grey and inactive.
 
 And **story points** for the board (turned on per board in settings):
 
