@@ -253,18 +253,21 @@
     'card-back-section': function (t) {
       lastT = t;
       return Promise.all([
-        t.card('idList', 'badges'),
+        t.card('idList', 'badges', 'desc'),
         t.get('card', 'shared', 'kid'),
         t.get('card', 'shared', 'pts'),
         spCfg(t),
       ]).then(function (r) {
         var card = r[0] || {}, b = card.badges || {}, kid = r[1], pts = r[2], c = r[3] || {};
         if (!b.checkItems) return null;
-        var estimated = !!kid || card.idList === c.todoListId || !!(pts && Object.keys(pts).length);
+        // A task card made from an epic links back to it at the start of its description ("[Epic](trello.com/c/…) / Checklist").
+        // That also covers a checklist card whose "kid" mark didn't get saved, after it leaves TO DO.
+        var fromEpic = /^\[[^\]]*\]\(https:\/\/trello\.com\/c\//.test(card.desc || '');
+        var estimated = !!kid || fromEpic || card.idList === c.todoListId || !!(pts && Object.keys(pts).length);
         if (estimated && c.on) {
           return { title: 'STORY POINTS', icon: BOLT, content: { type: 'iframe', url: t.signUrl('./cardpoints.html'), height: 160 } };
         }
-        if (kid) return null;  // a person's checklist card is not an epic: no TO DO cards from it
+        if (kid || fromEpic) return null;  // a person's checklist card is not an epic: no TO DO cards from it
         return {
           title: 'TASKS',
           icon: ICON,

@@ -410,6 +410,8 @@
   // Adds items to the person's checklist card for this checklist, creating the card if they have none
   // (or theirs is done, archived or left). job = { checklist, memberId, items }. Resolves with the card.
   // Items go one by one, so they keep the epic's order; what was added is recorded even if a later step fails.
+  var recentKid = {};  // groupKey -> { s: card shortLink, i: { itemKey: 1 } } — items added from this page
+
   function addToKid(t, d, job, pos) {
     var cl = job.checklist, gk = Core.groupKey(cl.id, job.memberId);
     var card = groupCard(d, cl.id, job.memberId);
@@ -420,17 +422,26 @@
       return Promise.resolve(t.get('card', 'shared', 'groups', {})).then(function (groups) {
         var g = (groups || {})[gk];
         var have = g && g.s === card.shortLink ? g.i || {} : {};
-        job = { checklist: cl, memberId: job.memberId, items: job.items.filter(function (it) { return !have[Core.itemKey(it.id)]; }) };
+        // Trello's Power-Up data and REST reads can lag right after a write: items this page added a moment
+        // ago are remembered here too, so a refresh right after creating the card doesn't add them twice.
+        var r = recentKid[gk] && recentKid[gk].s === card.shortLink ? recentKid[gk].i : {};
+        job = { checklist: cl, memberId: job.memberId, items: job.items.filter(function (it) { var k = Core.itemKey(it.id); return !have[k] && !r[k]; }) };
         return kidChecklist(t, card, cl);
       });
     }).then(function (list) {
+      var strip = P() ? P().strip : null;
       return job.items.reduce(function (p, it) {
         return p.then(function () {
           if (failed) return null;
-          var strip = P() ? P().strip : null;
+          var nm = Core.kidItemName(it.name, strip);
+          // The same open item is already in the card (added by another tab or a lagging read): link it, don't add.
+          var same = (list.checkItems || []).filter(function (x) { return x.name === nm && x.state !== 'complete'; })[0];
+          if (same) { entries[Core.itemKey(it.id)] = Core.kidSuffix(same.id); return null; }
           return api(t, 'POST', '/checklists/' + list.id + '/checkItems', {
-            name: Core.kidItemName(it.name, strip), pos: 'bottom', due: it.due || undefined,
+            name: nm, pos: 'bottom', due: it.due || undefined,
           }).then(function (ci) {
+            var rk = recentKid[gk] && recentKid[gk].s === card.shortLink ? recentKid[gk] : (recentKid[gk] = { s: card.shortLink, i: {} });
+            rk.i[Core.itemKey(it.id)] = 1;
             list.checkItems.push({ id: ci.id, name: ci.name, state: 'incomplete', pos: ci.pos, due: ci.due || null });
             entries[Core.itemKey(it.id)] = Core.kidSuffix(ci.id);
             // "[3]" in the epic item: the person's item starts with these points.
