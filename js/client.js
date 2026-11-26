@@ -261,7 +261,7 @@
     'card-back-section': function (t) {
       lastT = t;
       return Promise.all([
-        t.card('idList', 'badges', 'desc', 'customFieldItems'),
+        t.card('id', 'idList', 'badges', 'desc', 'customFieldItems'),
         t.get('card', 'shared', 'kid'),
         t.get('card', 'shared', 'pts'),
         spCfg(t),
@@ -274,11 +274,24 @@
         var estimated = !!kid || fromEpic || (c.todoIds || []).indexOf(card.idList) !== -1 || !!(pts && Object.keys(pts).length);
         if (estimated && c.on) {
           var sec = { title: 'STORY POINTS', icon: BOLT, content: { type: 'iframe', url: t.signUrl('./cardpoints.html'), height: 160 } };
-          // The card's points on the title's line, as Trello's section action on the right. The "Story points" field
-          // holds the sum of the open items (kept by the section itself); Trello gives no checklists here.
-          var v = c.fieldId ? P.cardPoints(card, c.fieldId) : null;
-          if (v != null || (pts && Object.keys(pts).length)) sec.action = { text: '⚡ ' + (v == null ? '?' : P.fmt(v)), callback: function () {} };
-          return sec;
+          // The card's points on the title's line, as Trello's section action on the right: the sum of the open
+          // items. Trello gives no checklists here, so they are read from the API (Trello asks again when the
+          // points or the card change); without access, the "Story points" field (kept by the section) stands in.
+          var label = function (v) { return { text: '⚡ ' + (v == null ? '?' : P.fmt(v)), callback: function () {} }; };
+          var fallback = function () {
+            var v = c.fieldId ? P.cardPoints(card, c.fieldId) : null;
+            if (v != null || (pts && Object.keys(pts).length)) sec.action = label(v);
+            return sec;
+          };
+          return EpicAuth.isAuthorized(t).then(function (ok) {
+            if (!ok || !card.id) return fallback();
+            return EpicAuth.request(t, 'GET', '/cards/' + card.id + '/checklists', { checkItems: 'all', checkItem_fields: 'name,state', fields: 'name' })
+              .then(function (cls) {
+                var sum = P.checklistField({ checklists: cls || [] }, pts || {});
+                if (sum !== undefined) sec.action = label(sum);
+                return sec;
+              }, fallback);
+          }).catch(fallback);
         }
         if (kid || fromEpic) return null;  // a person's checklist card is not an epic: no TO DO cards from it
         return {
