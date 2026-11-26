@@ -70,7 +70,7 @@ with sync_playwright() as p:
     check(pg.locator(".sp-hint-reload").count() == 0, "no reload hint before anything is changed")
     check(pg.inner_text(".sp-big") == "20" and pg.inner_text(".sp-cap") == "story points in TO DO · everyone",
           f"until then the whole TO DO list: {pg.inner_text('.sp-big')} / {pg.inner_text('.sp-cap')}")
-    check(pg.inner_text(".sp-sub") == "7 tasks · 1 unestimated", f"subline: {pg.inner_text('.sp-sub')}")
+    check(pg.inner_text(".sp-sub") == "Unestimated", f"subline: {pg.inner_text('.sp-sub')}")
     pg.screenshot(path=str(OUT / "sp-1-sum.png"), full_page=True)
 
     # picker
@@ -78,7 +78,7 @@ with sync_playwright() as p:
     pg.wait_for_selector(".sp-row")
     check(pg.inner_text(".sp-total-text b") == "Total in TO DO", "total block title")
     check(pg.inner_text(".sp-total-num").strip() == "20", f"total counts every card once (8+2+0.5+3+5+1.5): {pg.inner_text('.sp-total-num')}")
-    check(pg.inner_text(".sp-total-text span") == "7 tasks · 1 unestimated", f"total subline: {pg.inner_text('.sp-total-text span')}")
+    check(pg.inner_text(".sp-total-text span") == "Unestimated", f"total subline: {pg.inner_text('.sp-total-text span')}")
     names = pg.locator(".sp-row .sp-row-name").all_inner_texts()
     pills = [x.strip() for x in pg.locator(".sp-row .sp-pill").all_inner_texts()]
     rows = list(zip(names, pills))
@@ -104,7 +104,7 @@ with sync_playwright() as p:
     pg.locator(".sp-row", has_text="Dmytro").click()
     pg.wait_for_selector(".sp-big")
     check(pg.inner_text(".sp-name") == "Dmytro Voloshyn" and pg.inner_text(".sp-big") == "10.5", f"picked Dmytro: {pg.inner_text('.sp-big')}")
-    check(pg.inner_text(".sp-sub") == "3 tasks", f"Dmytro subline: {pg.inner_text('.sp-sub')}")
+    check(pg.inner_text(".sp-sub") == "All estimated", f"Dmytro subline: {pg.inner_text('.sp-sub')}")
     check(pg.locator(".sp-hint-reload").count() == 0, "no reload hint any more (the header shows only Σ)")
     st = pg.evaluate("window.__state")
     check(st["plugin"].get("member", {}).get("spPerson") == "mem" + "2".zfill(21), "choice remembered for next time")
@@ -205,8 +205,8 @@ with sync_playwright() as p:
     bp = open_page("spbar.html", BOARD)
     bp.wait_for_selector(".spbar-num")
     check(bp.inner_text(".spbar-name") == "Choose a person" and bp.inner_text(".spbar-num") == "20"
-          and bp.inner_text(".spbar-unit") == "points · everyone" and bp.inner_text(".spbar-sub") == "7 tasks"
-          and bp.inner_text(".spbar-est") == "1 unestimated" and "warn" in bp.get_attribute(".spbar-est", "class"),
+          and bp.inner_text(".spbar-unit") == "points · everyone" and bp.locator(".spbar-sub").count() == 0
+          and bp.inner_text(".spbar-est") == "Unestimated" and "warn" in bp.get_attribute(".spbar-est", "class"),
           f"panel, nobody picked: {bp.inner_text('.spbar')}")
     check(bp.inner_text(".spbar-pill") == "TO DO", "panel shows the list name")
     bp.click(".spbar-est")
@@ -237,7 +237,7 @@ with sync_playwright() as p:
     # the panel page has its own mock state: give it the same pick, as Trello would
     bp.evaluate("TrelloPowerUp.iframe().set('member', 'private', 'spPerson', 'mem' + '2'.padStart(21, '0'))")
     bp.wait_for_function("document.querySelector('.spbar-name') && document.querySelector('.spbar-name').textContent === 'Dmytro Voloshyn'", timeout=3000)
-    check(bp.inner_text(".spbar-num") == "10.5" and bp.inner_text(".spbar-unit") == "points" and bp.inner_text(".spbar-sub") == "3 tasks"
+    check(bp.inner_text(".spbar-num") == "10.5" and bp.inner_text(".spbar-unit") == "points" and bp.locator(".spbar-sub").count() == 0
           and bp.inner_text(".spbar-est") == "All estimated" and "ok" in bp.get_attribute(".spbar-est", "class"),
           f"the panel switches to the picked person right away: {bp.inner_text('.spbar')}")
     # live: someone changes points on a card -> Trello reports a change -> the panel recounts
