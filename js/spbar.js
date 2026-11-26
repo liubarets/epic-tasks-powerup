@@ -2,7 +2,7 @@
 // Story points panel at the bottom of the board (Trello's board bar). One line: the picked person and
 // their points in TO DO. It refreshes by itself: whenever Trello reports a change, and every 10 s as a fallback.
 // A click on the person opens Trello's popup with the person list (storypoints.html in "pick" mode);
-// "N unestimated" opens a big window to set points without opening the cards (estimate.html).
+// "Unestimated" opens a big window to set points without opening the cards (estimate.html).
 (function () {
   'use strict';
   var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
@@ -82,11 +82,9 @@
           '<span class="spbar-sep"></span>' +
           '<span class="spbar-num">' + P.fmt(s.points) + '</span>' +
           '<span class="spbar-unit">' + (person ? 'points' : 'points · everyone') + '</span>' +
-          // Tasks, not cards: a card with a checklist counts as its open items.
-          '<span class="spbar-sub">' + esc(P.tasksWord(s.tasks)) + '</span>' +
           // Opens the big "Estimate story points" window (estimate.html).
           (s.cards ? '<button type="button" class="spbar-est' + (s.none ? ' warn' : ' ok') + '" data-action="estimate" aria-haspopup="dialog">' +
-            BOLT + esc(s.none ? s.none + ' unestimated' : 'All estimated') + '</button>' : '') +
+            BOLT + esc(s.none ? 'Unestimated' : 'All estimated') + '</button>' : '') +
         '</div>';
     }
     if (html === last) return;  // nothing changed: don't touch the page (keeps it calm)

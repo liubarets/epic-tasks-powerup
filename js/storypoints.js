@@ -86,7 +86,8 @@
 
   function stats(id) { return data.sum.by[id] || { points: 0, cards: 0, tasks: 0, none: 0 }; }
 
-  function subline(s) { return P.tasksWord(s.tasks) + (s.none ? ' · ' + s.none + ' unestimated' : ''); }
+  // No counts here (they would count cards, not tasks): only whether something is left to estimate.
+  function subline(s) { return s.none ? 'Unestimated' : 'All estimated'; }
 
   function render() {
     var cfg = data.cfg;
