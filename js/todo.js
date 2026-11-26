@@ -216,8 +216,12 @@
   // TO DO card nor an item in their checklist card).
   function pendingInChecklist(d, cl) {
     var out = [];
+    var clNext = Core.parsePriority(cl.name) === Core.NEXT_SPRINT;
     cl.checkItems.forEach(function (it) {
       if (it.state === 'complete') return;
+      // ⏭️ NS (next sprint), on the item or on its checklist (unless the item has its own priority): not now.
+      var own = Core.parsePriority(it.name);
+      if (own === Core.NEXT_SPRINT || (!own && clNext)) return;
       Core.allAssignees(it, d.board.members, d.alive).forEach(function (a) {
         if (!a.unknown && !linkInfo(d, it.id, a.id)) out.push({ item: it, checklist: cl, memberId: a.id });
       });

@@ -6,10 +6,15 @@
     { level: 1, emoji: '🔴', short: 'P1', title: 'Urgent' },
     { level: 2, emoji: '🟠', short: 'P2', title: 'Important' },
     { level: 3, emoji: '🟢', short: 'P3', title: 'Can wait' },
+    { level: 4, emoji: '⚪', short: 'P4', title: 'Low priority' },
+    // Next sprint: sorted to the very bottom, and "＋ Cards" / "＋ All cards" skip such items (its chip still adds one).
+    { level: 5, emoji: '⏭️', short: 'NS', title: 'Next sprint' },
   ];
+  var NEXT_SPRINT = 5;
   // The priority emoji can stand anywhere in a name (people edit titles, e.g. "[5] 🟢 Video"),
   // so it is looked up and replaced where it is. The first one counts.
-  var PRIO_RE = /(🔴|🟠|🟢)\ufe0f?/u;
+  // ⚪ and ⏭ may come with or without the emoji variation selector (U+FE0F): both count, and it is replaced too.
+  var PRIO_RE = /(🔴|🟠|🟢|⚪|⏭)\ufe0f?/u;
   // @username: Trello usernames = letters, digits, underscore. Must follow start/space/bracket
   // so e-mails like a@b.com are not treated as mentions.
   var MENTION_RE = /(^|[\s(,;])@([A-Za-z0-9_]{2,})/g;
@@ -22,7 +27,7 @@
   function parsePriority(name) {
     var m = PRIO_RE.exec(String(name || ''));
     if (!m) return 0;
-    for (var i = 0; i < PRIORITIES.length; i++) if (PRIORITIES[i].emoji === m[1]) return PRIORITIES[i].level;
+    for (var i = 0; i < PRIORITIES.length; i++) if (PRIORITIES[i].emoji.replace(/\ufe0f/g, '') === m[1]) return PRIORITIES[i].level;
     return 0;
   }
 
@@ -102,10 +107,11 @@
     return out;
   }
 
-  // Stable sort: P1, P2, P3, then items without priority; ties keep current order.
+  // Stable sort: P1, P2, P3, P4 (low), then items without priority, then NS (next sprint); ties keep current order.
+  function prioRank(level) { return level === NEXT_SPRINT ? 99 : level || 50; }
   function sortByPriority(items) {
     return items
-      .map(function (it, idx) { return { it: it, idx: idx, l: parsePriority(it.name) || 99 }; })
+      .map(function (it, idx) { return { it: it, idx: idx, l: prioRank(parsePriority(it.name)) }; })
       .sort(function (a, b) { return a.l - b.l || a.idx - b.idx; })
       .map(function (x) { return x.it; });
   }
@@ -435,6 +441,8 @@
 
   var Core = {
     PRIORITIES: PRIORITIES,
+    NEXT_SPRINT: NEXT_SPRINT,
+    prioRank: prioRank,
     byLevel: byLevel,
     parsePriority: parsePriority,
     stripPriority: stripPriority,
