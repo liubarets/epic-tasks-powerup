@@ -429,12 +429,13 @@
     return '<section class="cl"><div class="cl-head">' +
       clPrioHtml(cl) +
       '<span class="cl-name">' + esc(Core.withPriority(cl.name, 0)) + '</span>' +
-      '<span class="cl-count">' + done + '/' + total + '</span>' +
-      '<span class="bar"><span style="width:' + pct + '%"></span></span>' +
       '<span class="cl-actions">' +
-      '<button class="link" data-action="sort" data-cl="' + esc(cl.id) + '" title="Sort items: P1 → P2 → P3 → no priority">↕ Sort by priority</button>' +
+      '<button class="link" data-action="sort" data-cl="' + esc(cl.id) + '" title="Sort items: P1 → P4, no priority, then NS">↕ Sort by priority</button>' +
       myCardsHtml(cl) +
       '</span>' +
+      // Progress on a line of its own under the name, as in Trello's own checklists.
+      '<div class="cl-prog"><span class="cl-count">' + done + '/' + total + '</span>' +
+      '<span class="bar"><span style="width:' + pct + '%"></span></span></div>' +
       '</div>' + myMenuHtml(cl) + '<ul>' + rows + '</ul></section>';
   }
 
