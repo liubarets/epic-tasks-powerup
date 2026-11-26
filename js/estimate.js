@@ -403,5 +403,12 @@
     if (e.key === 'Escape' && ui.dd) { ui.dd = false; render(); }
   });
 
+  // Trello focuses its own × when the window opens and draws a blue ring around it: take the focus into this page.
+  function grabFocus() {
+    try { document.body.setAttribute('tabindex', '-1'); window.focus(); document.body.focus({ preventScroll: true }); } catch (e) { /* not critical */ }
+  }
+  if (document.readyState === 'complete') grabFocus(); else window.addEventListener('load', grabFocus);
+  setTimeout(grabFocus, 300);
+
   t.render(load);
 })();

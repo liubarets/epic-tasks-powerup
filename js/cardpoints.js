@@ -1,6 +1,6 @@
 /* global TrelloPowerUp, EpicAuth, EpicPoints */
 // "STORY POINTS" section on the back of a card with a checklist (a TO DO card, or a person's checklist card):
-// a small scale under every open item. The card's "Story points" field is the sum of its open items, kept up to
+// for every item a points drop-down and a status drop-down (TO DO / IN PROGRESS / DONE). The card's "Story points" field is the sum of its open items, kept up to
 // date here (on every change Trello reports for the card) and by the connector's card badges (client.js).
 // The points live in Teamload data "pts" on the card: { last 8 characters of the item id: n }.
 (function () {
@@ -32,12 +32,15 @@
 
   function load() {
     return Promise.all([
-      t.card('id', 'name', 'checklists', 'customFieldItems'),
+      t.card('id', 'name', 'checklists', 'customFieldItems', 'idList'),
+      t.lists('id', 'name'),
       t.get('board', 'shared', 'cfg', {}),
       t.board('customFields'),
       t.get('card', 'shared', 'pts', {}),
       EpicAuth.isAuthorized(t),
     ]).then(function (r) {
+      var lists = r.splice(1, 1)[0] || [];
+      r.lists = lists;
       // The checklists come from Trello's REST API: t.card('checklists') returns none on a real board.
       if (!r[4]) return r;
       return checklistsOf(r[0].id).then(function (lists) { r[0].checklists = lists; return r; }, function () { return r; });
@@ -45,7 +48,7 @@
       var card = r[0] || {}, cfg = r[1] || {};
       (card.checklists || []).sort(byPos);
       (card.checklists || []).forEach(function (cl) { (cl.checkItems || []).sort(byPos); });
-      data = { card: card, cfg: cfg, field: P.findField((r[2] || {}).customFields, cfg), pts: r[3] || {} };
+      data = { card: card, cfg: cfg, field: P.findField((r[2] || {}).customFields, cfg), pts: r[3] || {}, lists: r.lists || [] };
       ui.authed = !!r[4];
       render();
       return ui.authed ? tidy() : null;
@@ -113,9 +116,10 @@
   }
 
   // A click on a value sets it; a click on the value already set clears it.
-  function setPoints(itemId, v) {
+  function setPoints(itemId, v, keep) {
     var k = P.itemKey(itemId);
     var cur = P.itemPoints({ id: itemId, name: '' }, data.pts);
+    if (keep && cur === v) return Promise.resolve();
     var change = {};
     change[k] = cur === v ? null : v;
     if (cur === v) delete data.pts[k]; else data.pts[k] = v;
@@ -130,6 +134,74 @@
         return rename ? EpicAuth.request(t, 'PUT', '/cards/' + data.card.id + '/checkItem/' + itemId, { name: clean }) : null;
       }).then(syncField).then(render);
     });
+  }
+
+  // ---- status of an item in this card (TO DO / IN PROGRESS / DONE) ----
+  function progressListId() {
+    var ls = data.lists || [], done = data.cfg.doneListIds || [], todo = data.cfg.todoListId;
+    var ti = -1, di = ls.length;
+    ls.forEach(function (l, i) { if (l.id === todo) ti = i; });
+    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
+    var between = ti === -1 ? [] : ls.slice(ti + 1, di).filter(function (l) { return done.indexOf(l.id) === -1; });
+    var named = function (l) { return /progress|doing|в робот|в процес/i.test(l.name || ''); };
+    var pick = between.filter(named)[0] || between[0] || ls.filter(function (l) { return named(l) && l.id !== todo && done.indexOf(l.id) === -1; })[0];
+    return pick ? pick.id : null;
+  }
+  function listName(id, fallback) {
+    var l = (data.lists || []).filter(function (x) { return x.id === id; })[0];
+    return l ? l.name : fallback;
+  }
+  function statusOf(it) {
+    if (it.state === 'complete') return 'done';
+    var prog = progressListId();
+    if (prog && data.card.idList === prog) return 'prog';
+    return 'todo';
+  }
+  function statusLabel(st) {
+    if (st === 'done') return 'DONE';
+    if (st === 'prog') return String(listName(progressListId(), 'IN PROGRESS')).toUpperCase();
+    return String(listName(data.cfg.todoListId, 'TO DO')).toUpperCase();
+  }
+  function moveCard(listId) {
+    if (!listId || data.card.idList === listId) return Promise.resolve();
+    return EpicAuth.request(t, 'PUT', '/cards/' + data.card.id, { idList: listId, pos: 'top' }).then(function () { data.card.idList = listId; });
+  }
+  // TO DO / IN PROGRESS untick the item (IN PROGRESS also moves the card out of TO DO; both bring it back from Done);
+  // DONE ticks it, and when every item is ticked the card moves to Done.
+  function setStatus(itemId, st) {
+    var it = P.allItems(data.card).filter(function (x) { return x.id === itemId; })[0];
+    if (!it) return Promise.resolve();
+    var done = data.cfg.doneListIds || [], want = st === 'done' ? 'complete' : 'incomplete';
+    ui.error = null;
+    return enqueue(function () {
+      var tick = it.state === want ? Promise.resolve()
+        : EpicAuth.request(t, 'PUT', '/cards/' + data.card.id + '/checkItem/' + it.id, { state: want }).then(function () { it.state = want; });
+      return tick.then(function () {
+        var inDone = done.indexOf(data.card.idList) !== -1;
+        if (st === 'todo') return inDone ? moveCard(data.cfg.todoListId) : null;
+        if (st === 'prog') return (inDone || data.card.idList === data.cfg.todoListId) ? moveCard(progressListId()) : null;
+        var all = P.allItems(data.card);
+        return all.length && all.every(function (x) { return x.state === 'complete'; }) ? moveCard(done[0]) : null;
+      }).then(syncField).then(render);
+    });
+  }
+
+  // Trello's own drop-down lists (t.popup with items), so they look like the rest of Trello.
+  function pointsMenu(e, itemId) {
+    var cur = P.itemPoints({ id: itemId, name: '' }, data.pts);
+    var items = VALUES.map(function (x) {
+      return { text: (cur === x ? '✓ ' : '') + P.fmt(x), callback: function (tt) { tt.closePopup(); setPoints(itemId, x, true); } };
+    }).concat([{ text: (cur == null ? '✓ ' : '') + 'No estimate', callback: function (tt) { tt.closePopup(); if (cur != null) setPoints(itemId, cur); } }]);
+    return t.popup({ title: 'Story points', items: items, mouseEvent: e });
+  }
+  function statusMenu(e, itemId) {
+    var it = P.allItems(data.card).filter(function (x) { return x.id === itemId; })[0];
+    if (!it) return null;
+    var cur = statusOf(it), prog = progressListId();
+    var opts = [['todo', statusLabel('todo')]].concat(prog ? [['prog', statusLabel('prog')]] : []).concat([['done', 'DONE']]);
+    return t.popup({ title: 'Status', mouseEvent: e, items: opts.map(function (o) {
+      return { text: (cur === o[0] ? '✓ ' : '') + o[1], callback: function (tt) { tt.closePopup(); if (cur !== o[0]) setStatus(itemId, o[0]); } };
+    }) });
   }
 
   function render() {
@@ -154,18 +226,14 @@
     var body = lists.map(function (cl) {
       var items = (cl.checkItems || []).map(function (it) {
         var v = P.itemPoints(it, d.pts);
-        var done = it.state === 'complete';
-        if (done) {
-          return '<li class="cp-item done"><span class="cp-name">' + esc(it.name) + '</span>' +
-            '<span class="cp-done">✓ done' + (v != null ? ' · ' + P.fmt(v) : '') + '</span></li>';
-        }
-        return '<li class="cp-item"><span class="cp-name">' + esc(it.name) + '</span>' +
-          '<span class="cp-scale" role="group" aria-label="' + esc('Story points for ' + it.name) + '">' +
-          VALUES.map(function (x) {
-            var on = v === x;
-            return '<button type="button" class="cp-v' + (on ? ' on' : '') + '" data-item="' + esc(it.id) + '" data-v="' + x + '" aria-pressed="' + on + '"' +
-              (ui.authed ? '' : ' disabled') + '>' + P.fmt(x) + '</button>';
-          }).join('') + '</span></li>';
+        var st = statusOf(it);
+        var dis = ui.authed ? '' : ' disabled';
+        return '<li class="cp-item' + (st === 'done' ? ' done' : '') + '">' +
+          '<button type="button" class="tsel cp-sp' + (v == null ? ' none' : '') + '" data-action="sp" data-item="' + esc(it.id) + '"' + dis +
+            ' title="Story points">⚡ ' + (v == null ? '?' : P.fmt(v)) + ' ▾</button>' +
+          '<span class="cp-name">' + esc(it.name) + '</span>' +
+          '<button type="button" class="tsel cp-st" data-action="st" data-item="' + esc(it.id) + '"' + dis + ' title="Status">' +
+            esc(statusLabel(st)) + ' ▾</button></li>';
       }).join('');
       return (lists.length > 1 ? '<div class="cp-cl">' + esc(cl.name) + '</div>' : '') + '<ul class="cp-list">' + items + '</ul>';
     }).join('');
@@ -183,7 +251,8 @@
       Promise.resolve(EpicAuth.authorize(t)).then(load).catch(function () {});
       return;
     }
-    if (b.hasAttribute('data-item')) setPoints(b.getAttribute('data-item'), parseFloat(b.getAttribute('data-v')));
+    if (b.getAttribute('data-action') === 'sp') pointsMenu(e, b.getAttribute('data-item'));
+    else if (b.getAttribute('data-action') === 'st') statusMenu(e, b.getAttribute('data-item'));
   });
 
   // Trello calls this on load and whenever the card or its Power-Up data changes (an item ticked, for example).
