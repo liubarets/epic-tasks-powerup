@@ -30,8 +30,15 @@ button.link { background: none; border: 0; padding: 0; margin: 0; color: var(--b
 button.link:hover { text-decoration: underline; }
 button.link:disabled { color: var(--muted); cursor: default; text-decoration: none; opacity: .7; }
 
-.cl { margin: 10px 0 14px; }
-.cl-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 4px; }
+/* A checklist is a block like Trello's own panels: a 1px #dcdfe4 frame, 8px corners, the header on Trello's
+   neutral grey (#f1f2f4), the items on white and set in a little under it. */
+.cl { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.cl-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0; padding: 6px 8px;
+  background: var(--bg-soft); border-radius: 7px 7px 0 0; }
+.cl > ul { padding: 4px 6px 6px 20px; }
+.cl > ul:empty { display: none; }
+.cl > .my-menu { margin: 6px 8px; }
+.cl-head .bar { background: #dcdfe4; }
 .cl-actions { display: inline-flex; gap: 12px; margin-left: auto; }
 .link-busy { color: var(--muted); font-size: 12px; }
 .cl-actions { align-items: center; }
@@ -48,8 +55,8 @@ button.all-btn .my-bprog > span { display: block; height: 100%; background: #fff
 .my-menu.all-menu { margin: 0 0 12px; }
 .my-foot { padding: 6px 6px 2px; margin-top: 4px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .cl-head button.my-btn.off, .cl-head button.my-btn.off:hover, .cl-head button.my-btn.off:focus, .cl-head button.my-btn[disabled] {
-  background: var(--bg-soft) !important; color: var(--muted) !important; box-shadow: none !important; cursor: default; pointer-events: none; }
-.cl-head select.cl-prio { flex: none; width: auto; margin: 0 6px 0 0; }
+  background: #dcdfe4 !important; color: var(--muted) !important; box-shadow: none !important; cursor: default; pointer-events: none; }
+.cl-head select.cl-prio { flex: none; width: 64px; margin: 0 6px 0 0; }
 /* Drop-down list drawn inside the iframe, styled like Trello's popover; always opens down (js/dropdown.js) */
 .dd { position: absolute; z-index: 50; width: 240px; max-width: calc(100vw - 8px); box-sizing: border-box; background: #fff; border-radius: 8px;
   box-shadow: 0 8px 12px #091e4226, 0 0 1px #091e424f; padding: 0 0 8px; color: var(--text); }
@@ -105,7 +112,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 .item:hover { background: var(--bg-soft); }
 .item.done .title { text-decoration: line-through; color: var(--muted); }
 
-select.prio { flex: none; width: 66px; height: 24px; min-height: 0; margin: 0; padding: 0 4px; font-size: 12px;
+select.prio { flex: none; width: 64px; height: 24px; min-height: 0; margin: 0; padding: 0 4px; font-size: 12px;
   border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--text); }
 .body { flex: 1; min-width: 0; }
 .title { word-break: break-word; }
