@@ -121,7 +121,12 @@
     }
     if (item.state === 'complete') return '<span class="' + cls + '">' + who + '</span>';
     return '<button class="' + cls + ' add" data-action="todo" data-item="' + esc(item.id) + '" data-member="' + esc(a.id) +
-      '" title="Create a TO DO card for @' + esc(a.username) + '">' + who + ' <span class="st">＋ TO DO</span></button>';
+      '" title="Create a TO DO card for @' + esc(a.username) + '">' + who + ' <span class="st">＋ ' + esc(todoName()) + '</span></button>';
+  }
+
+  // Where new cards go: the epic's TO DO column by name ("TO DO SP48", even before it is made), else "TO DO".
+  function todoName() {
+    return data.listName[data.todo] || (data.sprint != null ? EpicCore.sprintTodoName(data.sprint) : 'TO DO');
   }
 
   // The TO DO column of a card: the one it is in, else the epic's ("TO DO SP48", maybe not made yet).
@@ -131,7 +136,7 @@
     var up = function (x) { return String(x).toUpperCase(); };
     if (st === 'done') return 'DONE';
     if (st === 'prog') return up(data.listName[Todo.progressListId(data)] || 'IN PROGRESS');
-    if (st === 'todo') return up(data.listName[todoOf(info)] || (data.sprint !== null ? EpicCore.sprintTodoName(data.sprint) : 'TO DO'));
+    if (st === 'todo') return up(data.listName[todoOf(info)] || todoName());
     return up(data.listName[info.card.idList] || '');
   }
 
