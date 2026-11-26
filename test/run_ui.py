@@ -164,12 +164,10 @@ with sync_playwright() as p:
 
     # 6) a chip with a card opens a status menu: open the card from it, or move the card
     page.locator(".chip.linked").first.click()
-    check(page.locator(".st-menu").count() == 1 and page.locator(".st-menu button[data-st]").count() == 3, "status menu: TO DO / In progress / DONE")
-    page.locator(".st-menu .st-open").click()
-    check(len(S()["shown"]) == 1, "'Open card' in the menu opens the card")
+    items = page.evaluate("window.__lastPopup.items.map(i => i.text)")
+    check(page.evaluate("window.__lastPopup.title") == "Status" and len(items) == 3 and items[-1].endswith("DONE"), f"status drop-down: {items}")
     before = {k: c["idList"] for k, c in S()["cards"].items()}
-    page.locator(".chip.linked").first.click()
-    page.locator(".st-menu button[data-st=done]").click()
+    page.evaluate("window.__lastPopup.items.find(i => i.text.replace('✓ ', '') === 'DONE').callback(TrelloPowerUp.iframe())")
     page.wait_for_function("Object.values(window.__state.cards).filter(c => c.idList === 'L_done').length > " + str(sum(1 for v in before.values() if v == "L_done")), timeout=5000)
     moved = [k for k, c in S()["cards"].items() if before.get(k) != c["idList"]]
     check(len(moved) == 1 and S()["cards"][moved[0]]["idList"] == "L_done", f"DONE from the epic moves that person's card to Done: {moved}")
