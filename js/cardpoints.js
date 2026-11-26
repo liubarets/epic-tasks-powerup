@@ -1,12 +1,14 @@
-/* global TrelloPowerUp, EpicAuth, EpicPoints */
+/* global TrelloPowerUp, EpicAuth, EpicPoints, EpicCore, EpicDropdown */
 // "STORY POINTS" section on the back of a card with a checklist (a TO DO card, or a person's checklist card):
 // for every item a points drop-down and a status drop-down (TO DO / IN PROGRESS / DONE). The card's "Story points" field is the sum of its open items, kept up to
 // date here (on every change Trello reports for the card) and by the connector's card badges (client.js).
-// The points live in Teamload data "pts" on the card: { last 8 characters of the item id: n }.
+// The points live in Teamload data "pts" on the card: { last 8 characters of the item id: n }; the items that are
+// IN PROGRESS in "st": { last 8 characters of the item id: 1 }.
 (function () {
   'use strict';
   var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
   var P = EpicPoints;
+  var Core = EpicCore;
   var root = document.getElementById('root');
   var VALUES = [0.5, 1, 2, 3, 5, 8, 13, 21];
   var data = null;
@@ -38,9 +40,11 @@
       t.board('customFields'),
       t.get('card', 'shared', 'pts', {}),
       EpicAuth.isAuthorized(t),
+      t.get('card', 'shared', 'st', {}),
     ]).then(function (r) {
       var lists = r.splice(1, 1)[0] || [];
       r.lists = lists;
+      r.st = r.splice(5, 1)[0] || {};
       // The checklists come from Trello's REST API: t.card('checklists') returns none on a real board.
       if (!r[4]) return r;
       return checklistsOf(r[0].id).then(function (lists) { r[0].checklists = lists; return r; }, function () { return r; });
@@ -48,7 +52,7 @@
       var card = r[0] || {}, cfg = r[1] || {};
       (card.checklists || []).sort(byPos);
       (card.checklists || []).forEach(function (cl) { (cl.checkItems || []).sort(byPos); });
-      data = { card: card, cfg: cfg, field: P.findField((r[2] || {}).customFields, cfg), pts: r[3] || {}, lists: r.lists || [] };
+      data = { card: card, cfg: cfg, field: P.findField((r[2] || {}).customFields, cfg), pts: r[3] || {}, lists: r.lists || [], st: r.st || {} };
       ui.authed = !!r[4];
       render();
       return ui.authed ? tidy() : null;
@@ -63,6 +67,10 @@
   function tidy() {
     var d = data;
     var moves = [], changes = {};
+    // The card was moved to a Done list: all its items are done.
+    var done = d.cfg.doneListIds || [];
+    var open = done.indexOf(d.card.idList) !== -1 && d.cfg.autoComplete !== false
+      ? P.allItems(d.card).filter(function (it) { return it.state !== 'complete'; }) : [];
     if (d.cfg.sp && d.cfg.sp.migrate) {
       P.allItems(d.card).forEach(function (it) {
         var v = P.parse(it.name), name = P.strip(it.name), k = P.itemKey(it.id);
@@ -79,8 +87,12 @@
       return first.then(function () {
         return Promise.all(moves.map(function (it) {
           return EpicAuth.request(t, 'PUT', '/cards/' + d.card.id + '/checkItem/' + it.id, { name: it.name });
-        }));
-      }).then(function () { return syncField(); });
+        }).concat(open.map(function (it) {
+          return EpicAuth.request(t, 'PUT', '/cards/' + d.card.id + '/checkItem/' + it.id, { state: 'complete' }).then(function () { it.state = 'complete'; });
+        })));
+      }).then(function () {
+        return open.length ? saveSt({}) : null;
+      }).then(function () { return syncField(); }).then(function () { if (open.length) render(); });
     });
   }
 
@@ -136,26 +148,14 @@
     });
   }
 
-  // ---- status of an item in this card (TO DO / IN PROGRESS / DONE) ----
-  function progressListId() {
-    var ls = data.lists || [], done = data.cfg.doneListIds || [], todo = data.cfg.todoListId;
-    var ti = -1, di = ls.length;
-    ls.forEach(function (l, i) { if (l.id === todo) ti = i; });
-    ls.forEach(function (l, i) { if (done.indexOf(l.id) !== -1 && i > ti && i < di) di = i; });
-    var between = ti === -1 ? [] : ls.slice(ti + 1, di).filter(function (l) { return done.indexOf(l.id) === -1; });
-    var named = function (l) { return /progress|doing|в робот|в процес/i.test(l.name || ''); };
-    var pick = between.filter(named)[0] || between[0] || ls.filter(function (l) { return named(l) && l.id !== todo && done.indexOf(l.id) === -1; })[0];
-    return pick ? pick.id : null;
-  }
+  // ---- status of an item in this card (TO DO / IN PROGRESS / DONE): every item has its own ----
+  function progressListId() { return Core.progressListId(data.lists, data.cfg); }
   function listName(id, fallback) {
     var l = (data.lists || []).filter(function (x) { return x.id === id; })[0];
     return l ? l.name : fallback;
   }
   function statusOf(it) {
-    if (it.state === 'complete') return 'done';
-    var prog = progressListId();
-    if (prog && data.card.idList === prog) return 'prog';
-    return 'todo';
+    return Core.itemStatus(data.card.idList, it, !!(data.st || {})[P.itemKey(it.id)], data.cfg.doneListIds);
   }
   function statusLabel(st) {
     if (st === 'done') return 'DONE';
@@ -166,41 +166,50 @@
     if (!listId || data.card.idList === listId) return Promise.resolve();
     return EpicAuth.request(t, 'PUT', '/cards/' + data.card.id, { idList: listId, pos: 'top' }).then(function () { data.card.idList = listId; });
   }
-  // TO DO / IN PROGRESS untick the item (IN PROGRESS also moves the card out of TO DO; both bring it back from Done);
-  // DONE ticks it, and when every item is ticked the card moves to Done.
+  function saveSt(st) {
+    var a = Object.keys(data.st || {}).sort().join(), b = Object.keys(st).sort().join();
+    data.st = st;
+    return a === b ? Promise.resolve() : Promise.resolve(t.set('card', 'shared', 'st', st));
+  }
+  // The other items keep their status (Core.statusPlan): IN PROGRESS moves the card out of TO DO (or back from
+  // Done), DONE ticks the item and the card goes to Done when every item is done.
   function setStatus(itemId, st) {
-    var it = P.allItems(data.card).filter(function (x) { return x.id === itemId; })[0];
-    if (!it) return Promise.resolve();
-    var done = data.cfg.doneListIds || [], want = st === 'done' ? 'complete' : 'incomplete';
+    var all = P.allItems(data.card);
+    if (!all.some(function (x) { return x.id === itemId; })) return Promise.resolve();
     ui.error = null;
     return enqueue(function () {
-      var tick = it.state === want ? Promise.resolve()
-        : EpicAuth.request(t, 'PUT', '/cards/' + data.card.id + '/checkItem/' + it.id, { state: want }).then(function () { it.state = want; });
-      return tick.then(function () {
-        var inDone = done.indexOf(data.card.idList) !== -1;
-        if (st === 'todo') return inDone ? moveCard(data.cfg.todoListId) : null;
-        if (st === 'prog') return (inDone || data.card.idList === data.cfg.todoListId) ? moveCard(progressListId()) : null;
-        var all = P.allItems(data.card);
-        return all.length && all.every(function (x) { return x.state === 'complete'; }) ? moveCard(done[0]) : null;
-      }).then(syncField).then(render);
+      var plan = Core.statusPlan({
+        listId: data.card.idList, itemId: itemId, status: st, todoListId: data.cfg.todoListId,
+        progListId: progressListId(), doneListIds: data.cfg.doneListIds,
+        items: all.map(function (x) { return { id: x.id, state: x.state, prog: !!(data.st || {})[P.itemKey(x.id)] }; }),
+      });
+      var next = {};
+      var reqs = plan.items.map(function (p) {
+        if (p.prog) next[P.itemKey(p.id)] = 1;
+        var x = all.filter(function (y) { return y.id === p.id; })[0];
+        if (!x || x.state === p.state) return null;
+        return EpicAuth.request(t, 'PUT', '/cards/' + data.card.id + '/checkItem/' + x.id, { state: p.state }).then(function () { x.state = p.state; });
+      });
+      return Promise.all(reqs).then(function () { return saveSt(next); })
+        .then(function () { return moveCard(plan.moveTo); }).then(syncField).then(render);
     });
   }
 
-  // Trello's own drop-down lists (t.popup with items), so they look like the rest of Trello.
-  function pointsMenu(e, itemId) {
+  // Drop-down lists like Trello's, drawn here so they always open down (js/dropdown.js).
+  function pointsMenu(btn, itemId) {
     var cur = P.itemPoints({ id: itemId, name: '' }, data.pts);
     var items = VALUES.map(function (x) {
-      return { text: (cur === x ? '✓ ' : '') + P.fmt(x), callback: function (tt) { tt.closePopup(); setPoints(itemId, x, true); } };
-    }).concat([{ text: (cur == null ? '✓ ' : '') + 'No estimate', callback: function (tt) { tt.closePopup(); if (cur != null) setPoints(itemId, cur); } }]);
-    return t.popup({ title: 'Story points', items: items, mouseEvent: e });
+      return { text: P.fmt(x), checked: cur === x, onPick: function () { setPoints(itemId, x, true); } };
+    }).concat([{ text: 'No estimate', checked: cur == null, onPick: function () { if (cur != null) setPoints(itemId, cur); } }]);
+    return EpicDropdown.open(btn, { title: 'Story points', items: items, resize: resize });
   }
-  function statusMenu(e, itemId) {
+  function statusMenu(btn, itemId) {
     var it = P.allItems(data.card).filter(function (x) { return x.id === itemId; })[0];
     if (!it) return null;
     var cur = statusOf(it), prog = progressListId();
     var opts = [['todo', statusLabel('todo')]].concat(prog ? [['prog', statusLabel('prog')]] : []).concat([['done', 'DONE']]);
-    return t.popup({ title: 'Status', mouseEvent: e, items: opts.map(function (o) {
-      return { text: (cur === o[0] ? '✓ ' : '') + o[1], callback: function (tt) { tt.closePopup(); if (cur !== o[0]) setStatus(itemId, o[0]); } };
+    return EpicDropdown.open(btn, { title: 'Status', resize: resize, items: opts.map(function (o) {
+      return { text: o[1], checked: cur === o[0], onPick: function () { if (cur !== o[0]) setStatus(itemId, o[0]); } };
     }) });
   }
 
@@ -210,6 +219,7 @@
       return resize();
     }
     var d = data;
+    EpicDropdown.close();
     if (!d.field) {
       root.innerHTML = '<p class="msg">The “' + esc(P.FIELD_NAME) + '” field isn’t on this board yet. Create it in Teamload settings.</p>';
       return resize();
@@ -251,8 +261,8 @@
       Promise.resolve(EpicAuth.authorize(t)).then(load).catch(function () {});
       return;
     }
-    if (b.getAttribute('data-action') === 'sp') pointsMenu(e, b.getAttribute('data-item'));
-    else if (b.getAttribute('data-action') === 'st') statusMenu(e, b.getAttribute('data-item'));
+    if (b.getAttribute('data-action') === 'sp') pointsMenu(b, b.getAttribute('data-item'));
+    else if (b.getAttribute('data-action') === 'st') statusMenu(b, b.getAttribute('data-item'));
   });
 
   // Trello calls this on load and whenever the card or its Power-Up data changes (an item ticked, for example).
