@@ -62,28 +62,15 @@
 
   // ------------------------------------------------------------------ actions
 
-  // The item and its linked TO DO cards (not done yet) get the new emoji, wherever it stands in the name.
+  // The item gets the new emoji, and so do the cards made from it (Todo.itemPriorityOps: separate TO DO cards
+  // and the item in people's checklist cards, not done yet; only the emoji changes, edited names keep the rest).
   // The change is shown at once and finished in the background (see runOps).
   function setPriority(itemId, level) {
     var f = Todo.findItem(data, itemId);
     if (!f) return Promise.resolve();
     var newName = Core.withPriority(f.item.name, level);
-    var ops = [{ method: 'PUT', path: '/cards/' + data.card.id + '/checkItem/' + itemId, params: { name: newName } }];
-    var infos = Core.allAssignees(f.item, data.board.members, data.alive)
-      .filter(function (a) { return !a.unknown; })
-      .map(function (a) { return Todo.linkInfo(data, itemId, a.id); })
-      .filter(Boolean);
-    infos.filter(function (i) { return i.kind === 'card'; }).map(function (i) { return i.card; })
-      .filter(function (c, i, all) { return !Core.isCardDone(c, data.cfg.doneListIds) && all.indexOf(c) === i; })
-      .forEach(function (c) {
-        c.name = Core.withPriority(c.name, level);
-        ops.push({ method: 'PUT', path: '/cards/' + c.id, params: { name: c.name } });
-      });
-    // The item in people's checklist cards gets the new emoji too; the rest of its name (maybe edited there) stays.
-    infos.filter(function (i) { return i.kind === 'kid'; }).forEach(function (i) {
-      i.item.name = Core.withPriority(i.item.name, level);
-      ops.push({ method: 'PUT', path: '/cards/' + i.card.id + '/checkItem/' + i.item.id, params: { name: i.item.name } });
-    });
+    var ops = [{ method: 'PUT', path: '/cards/' + data.card.id + '/checkItem/' + itemId, params: { name: newName } }]
+      .concat(Todo.itemPriorityOps(data, f.item, level));
     f.item.name = newName;
     render();
     return runOps(ops);
@@ -330,14 +317,10 @@
     var cl = data.checklists.filter(function (x) { return x.id === clId; })[0];
     if (!cl) return Promise.resolve();
     var name = Core.withPriority(cl.name, level);
-    var ops = [{ method: 'PUT', path: '/checklists/' + clId, params: { name: name } }];
-    // People's checklist cards "Epic / Checklist" get the new emoji; the rest of their name stays as it is.
-    Todo.kidCardsOf(data, cl).forEach(function (c) {
-      var nn = Core.withKidCardPriority(c.name, level);
-      if (nn === c.name) return;
-      c.name = nn;
-      ops.push({ method: 'PUT', path: '/cards/' + c.id, params: { name: nn } });
-    });
+    // The cards made from this checklist follow: their name, the checklist inside and the description line
+    // (Todo.checklistPriorityOps; only the emoji changes).
+    var ops = [{ method: 'PUT', path: '/checklists/' + clId, params: { name: name } }]
+      .concat(Todo.checklistPriorityOps(data, cl, level));
     cl.name = name;
     render();
     return runOps(ops);

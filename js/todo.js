@@ -48,7 +48,7 @@
 
   // Linked TO DO cards, only the fields the Power-Up needs (≈10× less data than full cards).
   function fetchCards(t, shortLinks) {
-    var routes = shortLinks.map(function (s) { return '/cards/' + s + q({ fields: 'name,idList,closed,idMembers' }); });
+    var routes = shortLinks.map(function (s) { return '/cards/' + s + q({ fields: 'name,idList,closed,idMembers,desc' }); });
     return batch(t, routes).then(function (res) {
       var out = {};
       shortLinks.forEach(function (s, i) { out[s] = res[i]; });
@@ -66,7 +66,7 @@
   // People's checklist cards ("one card per checklist × person"), with their checklists and custom fields.
   function fetchKids(t, shortLinks) {
     var routes = shortLinks.map(function (s) {
-      return '/cards/' + s + q({ fields: 'name,idList,closed,idMembers,shortLink', checklists: 'all', checklist_fields: 'name,pos', customFieldItems: 'true' });
+      return '/cards/' + s + q({ fields: 'name,idList,closed,idMembers,shortLink,desc', checklists: 'all', checklist_fields: 'name,pos', customFieldItems: 'true' });
     });
     return batch(t, routes).then(function (res) {
       var out = {};
@@ -260,7 +260,7 @@
       // Known at once, so a next job on this page (or a refresh with lagging data) doesn't add it again.
       d.linked = d.linked || {};
       d.linked[created.shortLink] = { id: created.id, shortLink: created.shortLink, name: created.name || '', idList: d.cfg.todoListId,
-        closed: false, idMembers: [memberId] };
+        closed: false, idMembers: [memberId], desc: created.desc || '' };
       recentLinks[Core.linkKey(item.id, memberId)] = created.shortLink;
       if (created.badges && created.badges.attachments > 0) return created.shortLink;
       return api(t, 'POST', '/cards/' + created.id + '/attachments', { url: d.card.url, name: d.card.name })
@@ -380,7 +380,7 @@
       pos: pos != null ? pos : (d.cfg.position === 'bottom' ? 'bottom' : 'top'),
       urlSource: d.card.url,
     }).then(function (created) {
-      var c = { id: created.id, shortLink: created.shortLink, name: created.name, idList: d.cfg.todoListId,
+      var c = { id: created.id, shortLink: created.shortLink, name: created.name, desc: created.desc || '', idList: d.cfg.todoListId,
         closed: false, idMembers: [memberId], checklists: [], customFieldItems: [] };
       d.kids = d.kids || {};
       d.kids[c.shortLink] = c;
@@ -642,44 +642,95 @@
     return out;
   }
 
-  // The priority set in the epic reaches the cards made from it, even if it was set after the cards were made:
-  // the checklist's priority → people's checklist cards "Epic / Checklist"; an item's priority → its item in
-  // those cards and its separate TO DO cards. Only the emoji changes: the rest of the name may have been edited
-  // in the card and stays as it is. The due date of an item is copied into the checklist cards.
-  function syncKidItems(t, d) {
-    var jobs = [], done = d.cfg.doneListIds || [], seen = {};
-    d.checklists.forEach(function (cl) {
-      var clLevel = Core.parsePriority(cl.name);
-      if (clLevel) {
-        kidCardsOf(d, cl).forEach(function (c) {
-          if (Core.kidCardPriority(c.name) === clLevel) return;
-          c.name = Core.withKidCardPriority(c.name, clLevel);
-          jobs.push(api(t, 'PUT', '/cards/' + c.id, { name: c.name }));
-        });
+  // The checklist in a person's card that holds the epic checklist's items: the one named the same
+  // (priority emoji aside), else the first one.
+  function kidListFor(c, cl) {
+    var bare = function (n) { return Core.withPriority(n, 0).trim(); };
+    var lists = c.checklists || [];
+    return lists.filter(function (x) { return bare(x.name) === bare(cl.name); })[0] || lists[0] || null;
+  }
+
+  function addOp(ops, path, params) {
+    if (Object.keys(params).length) ops.push({ method: 'PUT', path: path, params: params });
+  }
+
+  // The priority in the epic is the one that counts: the cards made from it follow it, also when it was
+  // set, changed or removed after the cards were made. Only the emoji changes — names edited in the cards
+  // keep the rest. Cards in a Done list or archived are left alone. The copies in memory change at once.
+  // A checklist's priority → people's checklist cards (name "Epic / 🔴 Checklist", the checklist inside,
+  // the first line of the description) and the separate cards of its items ("Item — 🔴 Checklist", description).
+  // Returns the requests: [{ method, path, params }].
+  function checklistPriorityOps(d, cl, level) {
+    var ops = [], done = d.cfg.doneListIds || [], seen = {};
+    kidCardsOf(d, cl).forEach(function (c) {
+      var params = {}, dp = Core.descChecklistPriority(c.desc);
+      if (Core.kidCardPriority(c.name) !== level) params.name = c.name = Core.withKidCardPriority(c.name, level);
+      if (dp !== null && dp !== level) params.desc = c.desc = Core.withDescChecklistPriority(c.desc, level);
+      addOp(ops, '/cards/' + c.id, params);
+      var kl = kidListFor(c, cl);
+      if (kl && Core.parsePriority(kl.name) !== level) {
+        kl.name = Core.withPriority(kl.name, level);
+        addOp(ops, '/checklists/' + kl.id, { name: kl.name });
       }
+    });
+    cl.checkItems.forEach(function (it) {
+      (d.board.members || []).forEach(function (m) {
+        var info = linkInfo(d, it.id, m.id);
+        if (!info || info.kind !== 'card' || seen[info.card.id] || Core.isCardDone(info.card, done)) return;
+        var c = info.card, params = {}, np = Core.todoCardChecklistPriority(c.name), dp = Core.descChecklistPriority(c.desc);
+        seen[c.id] = 1;
+        if (np !== null && np !== level) params.name = c.name = Core.withTodoCardChecklistPriority(c.name, level);
+        if (dp !== null && dp !== level) params.desc = c.desc = Core.withDescChecklistPriority(c.desc, level);
+        addOp(ops, '/cards/' + c.id, params);
+      });
+    });
+    return ops;
+  }
+
+  // An item's priority → the item in people's checklist cards and its separate TO DO cards ("🔴 Item — Checklist").
+  function itemPriorityOps(d, it, level) {
+    var ops = [], done = d.cfg.doneListIds || [], seen = {};
+    (d.board.members || []).forEach(function (m) {
+      var info = linkInfo(d, it.id, m.id);
+      if (!info) return;
+      if (info.kind === 'card') {
+        var c = info.card;
+        if (seen[c.id] || Core.isCardDone(c, done) || Core.todoCardItemPriority(c.name) === level) return;
+        seen[c.id] = 1;
+        c.name = Core.withTodoCardItemPriority(c.name, level);
+        addOp(ops, '/cards/' + c.id, { name: c.name });
+        return;
+      }
+      if (info.card.closed || Core.isCardDone(info.card, done) || Core.parsePriority(info.item.name) === level) return;
+      info.item.name = Core.withPriority(info.item.name, level);
+      addOp(ops, '/cards/' + info.card.id + '/checkItem/' + info.item.id, { name: info.item.name });
+    });
+    return ops;
+  }
+
+  // On every opening of the epic: priorities (see above) and due dates go from the epic into the cards.
+  function syncKidItems(t, d) {
+    var ops = [];
+    d.checklists.forEach(function (cl) {
+      ops = ops.concat(checklistPriorityOps(d, cl, Core.parsePriority(cl.name)));
       cl.checkItems.forEach(function (it) {
-        var level = Core.parsePriority(it.name);
+        ops = ops.concat(itemPriorityOps(d, it, Core.parsePriority(it.name)));
+        if (!it.due) return;
         (d.board.members || []).forEach(function (m) {
           var info = linkInfo(d, it.id, m.id);
-          if (!info) return;
-          if (info.kind === 'card') {
-            var c = info.card;
-            if (!level || seen[c.id] || Core.isCardDone(c, done) || Core.parsePriority(c.name) === level) return;
-            seen[c.id] = 1;
-            c.name = Core.withPriority(c.name, level);
-            jobs.push(api(t, 'PUT', '/cards/' + c.id, { name: c.name }));
-            return;
-          }
-          var params = {};
-          if (level && Core.parsePriority(info.item.name) !== level) params.name = Core.withPriority(info.item.name, level);
-          if (it.due && info.item.due !== it.due) params.due = it.due;
-          if (!Object.keys(params).length) return;
-          Object.keys(params).forEach(function (k) { info.item[k] = params[k]; });
-          jobs.push(api(t, 'PUT', '/cards/' + info.card.id + '/checkItem/' + info.item.id, params));
+          if (!info || info.kind !== 'kid' || info.item.due === it.due) return;
+          info.item.due = it.due;
+          addOp(ops, '/cards/' + info.card.id + '/checkItem/' + info.item.id, { due: it.due });
         });
       });
     });
-    return Promise.all(jobs);
+    // One request per card / checklist / item: a later change of the same name already includes the earlier one.
+    var merged = {}, order = [];
+    ops.forEach(function (o) {
+      if (!merged[o.path]) { merged[o.path] = {}; order.push(o.path); }
+      Object.keys(o.params).forEach(function (k) { merged[o.path][k] = o.params[k]; });
+    });
+    return Promise.all(order.map(function (path) { return api(t, 'PUT', path, merged[path]); }));
   }
 
   // A checklist card moved to a Done list: all its items are done (ticked, and no longer in progress).
@@ -858,6 +909,8 @@
     pendingPeople: pendingPeople,
     syncKidItems: syncKidItems,
     kidCardsOf: kidCardsOf,
+    checklistPriorityOps: checklistPriorityOps,
+    itemPriorityOps: itemPriorityOps,
     addChecklistCards: addChecklistCards,
     addSeparateCards: addSeparateCards,
     jobsFor: jobsFor,

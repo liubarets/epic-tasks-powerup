@@ -297,6 +297,41 @@
     return parsePriority(i === -1 ? s : s.slice(i + 3));
   }
 
+  // A separate TO DO card "🔴 Item — Checklist": the item's priority lives before the last " — ",
+  // the checklist's after it. Only the emoji changes; the rest of the name stays as it is.
+  function splitTodoName(name) {
+    var s = String(name || ''), i = s.lastIndexOf(' — ');
+    return i === -1 ? { head: s, tail: null } : { head: s.slice(0, i), tail: s.slice(i + 3) };
+  }
+  function todoCardItemPriority(name) { return parsePriority(splitTodoName(name).head); }
+  function withTodoCardItemPriority(name, level) {
+    var p = splitTodoName(name);
+    return withPriority(p.head, level) + (p.tail === null ? '' : ' — ' + p.tail);
+  }
+  // null when the name has no checklist part.
+  function todoCardChecklistPriority(name) {
+    var p = splitTodoName(name);
+    return p.tail === null ? null : parsePriority(p.tail);
+  }
+  function withTodoCardChecklistPriority(name, level) {
+    var p = splitTodoName(name);
+    return p.tail === null ? String(name || '') : p.head + ' — ' + withPriority(p.tail, level);
+  }
+
+  // The first line of a card made from an epic: "[Epic](https://trello.com/c/…) / Checklist". Its checklist
+  // priority follows the epic; the rest of the description is left alone. null when the line isn't ours.
+  var DESC_RE = /^\[[^\n]*\]\(https:\/\/trello\.com\/c\/[^)]*\) \/ /;
+  function descChecklistPriority(desc) {
+    var first = String(desc || '').split('\n')[0];
+    return DESC_RE.test(first) ? kidCardPriority(first) : null;
+  }
+  function withDescChecklistPriority(desc, level) {
+    var lines = String(desc || '').split('\n');
+    if (!DESC_RE.test(lines[0])) return String(desc || '');
+    lines[0] = withKidCardPriority(lines[0], level);
+    return lines.join('\n');
+  }
+
   // ---- Status of an item (TO DO / IN PROGRESS / DONE) ----
 
   // The "in progress" list: the board's list between the TO DO list and the first Done list
@@ -379,6 +414,12 @@
     tickDecision: tickDecision,
     withKidCardPriority: withKidCardPriority,
     kidCardPriority: kidCardPriority,
+    todoCardItemPriority: todoCardItemPriority,
+    withTodoCardItemPriority: withTodoCardItemPriority,
+    todoCardChecklistPriority: todoCardChecklistPriority,
+    withTodoCardChecklistPriority: withTodoCardChecklistPriority,
+    descChecklistPriority: descChecklistPriority,
+    withDescChecklistPriority: withDescChecklistPriority,
     progressListId: progressListId,
     itemStatus: itemStatus,
     statusPlan: statusPlan,
