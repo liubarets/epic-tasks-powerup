@@ -39,6 +39,10 @@ button.link:disabled { color: var(--muted); cursor: default; text-decoration: no
 .cl > ul:empty { display: none; }
 .cl > .my-menu { margin: 6px 8px; }
 .cl-head .bar { background: #dcdfe4; }
+.cl-head .cl-name { flex: 1; min-width: 0; }
+/* The progress line under the name (count + bar), starting where the name starts: 64px select + 6px gap + 8px. */
+.cl-head .cl-prog { flex-basis: 100%; display: flex; align-items: center; gap: 8px; padding: 0 0 2px 78px; box-sizing: border-box; }
+.cl-head .cl-prog .cl-count { min-width: 24px; }
 .cl-actions { display: inline-flex; gap: 12px; margin-left: auto; }
 .link-busy { color: var(--muted); font-size: 12px; }
 .cl-actions { align-items: center; }
