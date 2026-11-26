@@ -334,6 +334,8 @@ with sync_playwright() as p:
       const before = (S.bars || []).length; btn[0].callback(t); out.btnOpens = (S.bars || []).slice(before);
       await new Promise(r => setTimeout(r, 50)); out.barPref = (S.plugin.member || {}).spBar;
       out.b1 = await badge(S.cards.a1);
+      out.left = await badge(Object.assign({}, S.cards.a1, { idList: 'L_prog', badges: Object.assign({}, S.cards.a1.badges, { checkItems: 2, checkItemsChecked: 2 }) }));
+      out.leftNot = await badge(Object.assign({}, S.cards.a1, { idList: 'L_prog', badges: Object.assign({}, S.cards.a1.badges, { checkItems: 2, checkItemsChecked: 1 }) }));
       out.b6 = await badge(S.cards.a6);
       out.b8 = Object.assign({}, S.cards.a8); out.b8.customFieldItems = []; out.b8 = await badge(out.b8);
       out.b3 = await badge(S.cards.a3);
@@ -350,6 +352,8 @@ with sync_playwright() as p:
       out.a2 = S.cards.a2.name;
       return out;
     }""")
+    check(any(x.get("text") == "⚠ Statuses" and x.get("color") == "yellow" for x in r["left"]) and not any(x.get("text") == "⚠ Statuses" for x in r["leftNot"]),
+          f"badge '⚠ Statuses' on a card out of Done with every item ticked, not with one open: {r['left']} {r['leftNot']}")
     check(r["btn"] == [{"text": "SP", "icon": True}] and r["btnOpens"] == ["./spbar.html"] and r["barPref"] is True,
           f"SP board button opens the panel at the bottom and remembers it is open: {r['btn']} {r['btnOpens']} {r['barPref']}")
     nb = cp.evaluate("""async () => {

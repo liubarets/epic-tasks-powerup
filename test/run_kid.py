@@ -425,7 +425,32 @@ with sync_playwright() as p:
     pick(sp2.locator(".chip.kid").nth(1), "DONE")
     sp2.wait_for_function("Object.values(window.__state.cards).some(c => c.name.endsWith(' / Spring merch 24.11') && c.idList === 'L_done')", timeout=5000)
     check(kidc()["idList"] == "L_done", "all of the person's items DONE from the epic: the card moves to Done")
+    # moved back out of Done by hand, items still ticked: the chips warn
+    sp2.evaluate("""() => { const c = Object.values(window.__state.cards).find(c => c.name.endsWith(' / Spring merch 24.11')); c.idList = 'L_todo'; }""")
+    sp2.click("button[data-action=refresh]")
+    sp2.wait_for_timeout(900)
+    w = sp2.locator(".chip.kid.warn").all_inner_texts()
+    check(len(w) == 2 and all("⚠" in x for x in w), f"card back in TO DO with all items DONE: chips show ⚠: {w}")
+    pick(sp2.locator(".chip.kid").first, "TO DO")
+    sp2.wait_for_timeout(1500)
+    w2 = sp2.locator(".chip.kid").all_inner_texts()
+    check(sp2.locator(".chip.warn").count() == 0, f"one item set back to TO DO: no warning any more: {w2}")
     sp2.close()
+
+    # the same on the card's back (STORY POINTS)
+    LEFT = TODO_CARD[:-1] + "; S.cards.T1.checklists[0].checkItems.forEach(i => i.state = 'complete'); }"
+    lp = open_page("cardpoints.html", LEFT)
+    lp.wait_for_selector(".cp-item")
+    lp.wait_for_timeout(400)
+    txt = lp.locator(".warn-left").inner_text() if lp.locator(".warn-left").count() else ""
+    check("moved out of Done" in txt and "all 3 tasks" in txt and lp.locator(".warn-left button").count() == 0,
+          f"card back: a notice without buttons: {txt!r}")
+    lp.screenshot(path=str(OUT / "kid-left-done.png"), full_page=True)
+    lp.close()
+    ok = open_page("cardpoints.html", TODO_CARD)
+    ok.wait_for_selector(".cp-item")
+    check(ok.locator(".warn-left").count() == 0, "a card with open items: no notice")
+    ok.close()
 
     b.close()
 

@@ -302,3 +302,16 @@ test('priorities: ⚪ P4 low and ↪️ NS next sprint', () => {
   assert.deepEqual(C.sortByPriority(items).map((x) => x.name), ['🔴 e', '🟢 d', '⚪ c', 'b', '↪️ a'], 'P1 … P4, none, NS last');
   assert.equal(C.todoCardName('↪️ Release notes @olga', 'ZYN SDK'), '↪️ Release notes — ZYN SDK');
 });
+
+test('a card moved out of Done with every item still ticked', () => {
+  const lists = [{ id: 's48', name: 'SPRINT 48' }, { id: 'p', name: 'IN PROGRESS' }, { id: 'd', name: 'DONE' }, { id: 't48', name: 'TO DO SP48' }];
+  const cfg = { doneListIds: ['d'] };
+  const f = (listId, total, checked) => C.leftDoneTicked({ listId, lists, cfg, total, checked });
+  assert.equal(f('t48', 3, 3), true, 'back in TO DO, all ticked');
+  assert.equal(f('p', 2, 2), true, 'in progress, all ticked');
+  assert.equal(f('t48', 3, 2), false, 'some still open: normal progress');
+  assert.equal(f('d', 3, 3), false, 'in Done: fine');
+  assert.equal(f('s48', 3, 3), false, 'an epic in a sprint list never');
+  assert.equal(f('t48', 0, 0), false, 'no items');
+  assert.equal(C.leftDoneTicked({ listId: 't48', lists, cfg: {}, total: 1, checked: 1 }), false, 'no Done lists set up');
+});
