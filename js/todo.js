@@ -15,6 +15,17 @@
     return new Error('This epic has no room left for Teamload data (Trello allows 4096 characters per card). ' +
       'Split the epic or remove finished checklists.');
   }
+  // The epic marks its Teamload data with its own id ("epic"). A copy of an epic (Trello copies Power-Up data
+  // with the card) sees another id there: it starts with no links instead of the original's cards.
+  function claim(t, d) {
+    if (d.mark === d.card.id) return Promise.resolve();
+    var wipe = d.copied ? [t.set('card', 'shared', 'links', {}), t.set('card', 'shared', 'groups', {})] : [];
+    return Promise.all(wipe.concat([t.set('card', 'shared', 'epic', d.card.id)])).then(function () { d.mark = d.card.id; d.copied = false; });
+  }
+  function readShared(t, d, key) {
+    return d.copied ? Promise.resolve({}) : Promise.resolve(t.get('card', 'shared', key, {})).then(function (v) { return v || {}; });
+  }
+
   function setShared(t, key, value) {
     var keys = ['links', 'groups'];
     return Promise.all(keys.map(function (k) { return k === key ? value : t.get('card', 'shared', k, {}); })).then(function (vals) {
@@ -90,23 +101,32 @@
   // board members and lists, settings, item → card links and the linked cards themselves.
   function load(t) {
     return Promise.all([
-      t.card('id', 'name', 'url', 'shortLink'),
+      t.card('id', 'name', 'url', 'shortLink', 'idList'),
       t.board('id', 'members', 'customFields'),
       t.member('id', 'username', 'fullName'),
       t.lists('id', 'name'),
       t.get('board', 'shared', 'cfg', {}),
       t.get('card', 'shared', 'links', {}),
       t.get('card', 'shared', 'groups', {}),
+      t.get('card', 'shared', 'epic'),
     ]).then(function (r) {
       var cfg = r[4] || {};
       // The TO DO list never counts as done, even if it was ticked under "Done lists" in older settings.
       cfg.doneListIds = (cfg.doneListIds || []).filter(function (id) { return id !== cfg.todoListId; });
-      var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: cfg, links: r[5] || {}, groups: r[6] || {} };
+      var d = { card: r[0], board: r[1], me: r[2], lists: r[3], cfg: cfg, links: r[5] || {}, groups: r[6] || {}, mark: r[7] || null };
+      // A copy of another epic: its links and groups belong to the original.
+      d.copied = !!d.mark && d.mark !== d.card.id;
+      if (d.copied) { d.links = {}; d.groups = {}; }
+      else if (!d.mark && (Object.keys(d.links).length || Object.keys(d.groups).length)) claim(t, d).catch(function () {});
       // Cards made from this page a moment ago: Trello's Power-Up data can lag right after a write.
       Object.keys(recentLinks).forEach(function (k) { if (!d.links[k]) d.links[k] = recentLinks[k]; });
       d.field = cfg.sp && cfg.sp.on && P() ? P().findField((r[1] || {}).customFields, cfg) : null;
       d.listName = {};
       d.lists.forEach(function (l) { d.listName[l.id] = l.name; });
+      // The epic's sprint ("SPRINT 48" → 48): its tasks go to the column "TO DO SP48" (made when first needed).
+      // An epic outside a sprint list uses the TO DO list from settings.
+      d.sprint = Core.sprintNumber(d.listName[d.card.idList]);
+      d.todo = resolveTodo(d);
       var shortLinks = unique(Object.keys(d.links).map(function (k) { return d.links[k]; }));
       var kidLinks = unique(Object.keys(d.groups).map(function (k) { return d.groups[k] && d.groups[k].s; }));
       // All requests at once: the links are already known from the Power-Up data.
@@ -210,8 +230,56 @@
     return pendingInChecklist(d, cl).filter(function (j) { return j.memberId === memberId; });
   }
 
+  function resolveTodo(d) {
+    if (d.sprint === null) return d.cfg.todoListId || null;
+    var col = (d.lists || []).filter(function (l) { return Core.sprintTodoNumber(l.name) === d.sprint; })[0];
+    return col ? col.id : null;
+  }
+  function isTodo(d, listId) { return Core.isTodoList(d.lists, d.cfg, listId); }
+
   function todoListError(d) {
-    return d.cfg.todoListId ? null : new Error('Choose the TO DO list in settings (⚙) first.');
+    return d.todo || d.sprint !== null ? null : new Error('Choose the TO DO list in settings (⚙) first.');
+  }
+
+  function boardLists(t, d) {
+    return api(t, 'GET', '/boards/' + d.board.id + '/lists', { fields: 'name,pos,closed', filter: 'open' });
+  }
+
+  // The epic's TO DO column; for a sprint epic it is created when first needed: "TO DO SP48", to the right of
+  // DONE (after the TO DO SP columns already there). If two people make it at once, the older one is kept.
+  function ensureTodo(t, d) {
+    if (d.todo) return Promise.resolve(d.todo);
+    var err = todoListError(d);
+    if (err) return Promise.reject(err);
+    if (d.making) return d.making;
+    var n = d.sprint, done = d.cfg.doneListIds || [];
+    var mine = function (ls) {
+      return (ls || []).filter(function (l) { return !l.closed && Core.sprintTodoNumber(l.name) === n; })
+        .sort(function (a, b) { return a.id < b.id ? -1 : 1; })[0] || null;
+    };
+    d.making = boardLists(t, d).then(function (ls) {
+      var have = mine(ls);
+      if (have) return have;
+      var anchors = ls.filter(function (l) { return done.indexOf(l.id) !== -1 || Core.sprintTodoNumber(l.name) !== null; })
+        .map(function (l) { return Number(l.pos); });
+      var at = anchors.length ? Math.max.apply(null, anchors) : null;
+      var after = at === null ? [] : ls.map(function (l) { return Number(l.pos); }).filter(function (p) { return p > at; }).sort(function (a, b) { return a - b; });
+      var pos = at === null ? 'bottom' : after.length ? (at + after[0]) / 2 : 'bottom';
+      return api(t, 'POST', '/lists', { name: Core.sprintTodoName(n), idBoard: d.board.id, pos: pos }).then(function (made) {
+        return boardLists(t, d).then(function (ls2) {
+          var first = mine(ls2) || made;
+          if (first.id !== made.id) api(t, 'PUT', '/lists/' + made.id + '/closed', { value: true }).catch(function () {});
+          return first;
+        }, function () { return made; });
+      });
+    }).then(function (l) {
+      d.making = null;
+      d.todo = l.id;
+      d.listName[l.id] = l.name;
+      if (!d.lists.some(function (x) { return x.id === l.id; })) d.lists.push({ id: l.id, name: l.name });
+      return l.id;
+    }, function (e) { d.making = null; throw e; });
+    return d.making;
   }
 
   function itemIds(d) {
@@ -223,7 +291,7 @@
   function saveLinks(t, d, newLinks) {
     if (!Object.keys(newLinks).length) return Promise.resolve();
     // Re-read right before writing to reduce clobbering when two people click at once.
-    return t.get('card', 'shared', 'links', {}).then(function (links) {
+    return claim(t, d).then(function () { return readShared(t, d, 'links'); }).then(function (links) {
       Object.keys(newLinks).forEach(function (k) { links[k] = newLinks[k]; });
       links = Core.pruneLinks(links, itemIds(d));
       d.links = links;
@@ -234,7 +302,7 @@
   // Records items added to a person's checklist card: groups[checklist × person] = { s: card, i: { item: suffix } }.
   // A new card for the same checklist × person replaces the old one (that one is done, archived or left).
   function saveGroup(t, d, gk, shortLink, entries) {
-    return t.get('card', 'shared', 'groups', {}).then(function (groups) {
+    return claim(t, d).then(function () { return readShared(t, d, 'groups'); }).then(function (groups) {
       var g = groups[gk];
       if (!g || g.s !== shortLink) g = { s: shortLink, i: {} };
       Object.keys(entries || {}).forEach(function (k) { g.i[k] = entries[k]; });
@@ -249,7 +317,7 @@
   // Nothing is attached to the card (Trello then shows no Attachments section): the epic is linked from the description.
   function createTodoCard(t, d, item, checklist, memberId, pos) {
     return api(t, 'POST', '/cards', {
-      idList: d.cfg.todoListId,
+      idList: d.todo,
       name: Core.todoCardName(item.name, checklist.name),
       desc: Core.todoCardDesc(d.card, checklist.name),
       idMembers: memberId,
@@ -258,7 +326,7 @@
     }).then(function (created) {
       // Known at once, so a next job on this page (or a refresh with lagging data) doesn't add it again.
       d.linked = d.linked || {};
-      d.linked[created.shortLink] = { id: created.id, shortLink: created.shortLink, name: created.name || '', idList: d.cfg.todoListId,
+      d.linked[created.shortLink] = { id: created.id, shortLink: created.shortLink, name: created.name || '', idList: d.todo,
         closed: false, idMembers: [memberId], desc: created.desc || '' };
       recentLinks[Core.linkKey(item.id, memberId)] = created.shortLink;
       return created.shortLink;
@@ -268,7 +336,7 @@
   // Positions for n new cards that keep the checklist order in the TO DO list even when the cards
   // are created in parallel. Resolves with null if the list can't be read (then cards go one by one).
   function positionsFor(t, d, n) {
-    return api(t, 'GET', '/lists/' + d.cfg.todoListId + '/cards', { fields: 'pos' }).then(function (cards) {
+    return api(t, 'GET', '/lists/' + d.todo + '/cards', { fields: 'pos' }).then(function (cards) {
       var ps = (cards || []).map(function (c) { return Number(c.pos); }).filter(function (p) { return p > 0; });
       var out = [];
       for (var i = 0; i < n; i++) {
@@ -282,9 +350,9 @@
   function addToTodo(t, d, itemId, memberId) {
     var f = findItem(d, itemId);
     if (!f) return Promise.reject(new Error('Item not found. Refresh the block (⟳).'));
-    var err = todoListError(d);
-    if (err) return Promise.reject(err);
-    return createTodoCard(t, d, f.item, f.checklist, memberId).then(function (shortLink) {
+    return ensureTodo(t, d).then(function () {
+      return createTodoCard(t, d, f.item, f.checklist, memberId);
+    }).then(function (shortLink) {
       var nl = {};
       nl[Core.linkKey(itemId, memberId)] = shortLink;
       return saveLinks(t, d, nl);
@@ -319,6 +387,7 @@
     var err = todoListError(d);
     if (err) return Promise.reject(err);
     if (!jobs.length) return Promise.resolve(0);
+    if (!d.todo) return ensureTodo(t, d).then(function () { return addMany(t, d, jobs, onProgress); });
     var unsaved = {};
     var saving = Promise.resolve();
     var n = 0;
@@ -369,13 +438,13 @@
   // as its member, the epic in its description. It is recorded and marked at once, so a second click adds to it.
   function createKidCard(t, d, cl, memberId, pos) {
     return api(t, 'POST', '/cards', {
-      idList: d.cfg.todoListId,
+      idList: d.todo,
       name: Core.kidCardName(d.card.name, cl.name),
       desc: Core.todoCardDesc(d.card, cl.name),
       idMembers: memberId,
       pos: pos != null ? pos : (d.cfg.position === 'bottom' ? 'bottom' : 'top'),
     }).then(function (created) {
-      var c = { id: created.id, shortLink: created.shortLink, name: created.name, desc: created.desc || '', idList: d.cfg.todoListId,
+      var c = { id: created.id, shortLink: created.shortLink, name: created.name, desc: created.desc || '', idList: d.todo,
         closed: false, idMembers: [memberId], checklists: [], customFieldItems: [] };
       d.kids = d.kids || {};
       d.kids[c.shortLink] = c;
@@ -430,7 +499,7 @@
     var c = info.card, done = d.cfg.doneListIds || [];
     if (info.kind === 'kid') return Core.itemStatus(c.idList, info.item, !!(c.st || {})[stKey(info.item.id)], done);
     if (done.indexOf(c.idList) !== -1) return 'done';
-    if (c.idList === d.cfg.todoListId) return 'todo';
+    if (isTodo(d, c.idList)) return 'todo';
     if (c.idList === progressListId(d)) return 'prog';
     return 'other';
   }
@@ -461,10 +530,18 @@
     var info = linkInfo(d, itemId, memberId);
     if (!info) return Promise.resolve();
     var done = d.cfg.doneListIds || [], prog = progressListId(d), c = info.card;
-    if (info.kind === 'card') return moveCard(t, d, c, { todo: d.cfg.todoListId, prog: prog, done: done[0] }[status]);
+    // "TO DO" is the TO DO column the card is in, else the epic's one (made if needed).
+    var todo = isTodo(d, c.idList) ? Promise.resolve(c.idList)
+      : status === 'todo' ? ensureTodo(t, d) : Promise.resolve(d.todo);
+    return todo.then(function (todoId) { return setStatusIn(t, d, info, status, todoId, prog, done); });
+  }
+
+  function setStatusIn(t, d, info, status, todoId, prog, done) {
+    var c = info.card;
+    if (info.kind === 'card') return moveCard(t, d, c, { todo: todoId, prog: prog, done: done[0] }[status]);
     var all = kidItems(c), st = c.st || {};
     var plan = Core.statusPlan({
-      listId: c.idList, itemId: info.item.id, status: status, todoListId: d.cfg.todoListId, progListId: prog, doneListIds: done,
+      listId: c.idList, itemId: info.item.id, status: status, todoListId: todoId, progListId: prog, doneListIds: done,
       items: all.map(function (x) { return { id: x.id, state: x.state, prog: !!st[stKey(x.id)] }; }),
     });
     var reqs = [], next = {};
@@ -490,7 +567,8 @@
     var cl = job.checklist, gk = Core.groupKey(cl.id, job.memberId);
     var card = groupCard(d, cl.id, job.memberId);
     var entries = {}, points = {}, failed = null;
-    return (card ? Promise.resolve(card) : createKidCard(t, d, cl, job.memberId, pos)).then(function (c) {
+    var make = function () { return ensureTodo(t, d).then(function () { return createKidCard(t, d, cl, job.memberId, pos); }); };
+    return (card ? Promise.resolve(card) : make()).then(function (c) {
       card = c;
       // Someone else (or another tab) may have just added some of these items: skip what is already recorded.
       return Promise.resolve(t.get('card', 'shared', 'groups', {})).then(function (groups) {
@@ -891,6 +969,8 @@
     updateCardField: updateCardField,
     sync: sync,
     todoListError: todoListError,
+    isTodo: isTodo,
+    ensureTodo: ensureTodo,
     addToTodo: addToTodo,
     addMany: addMany,
     addAllOptions: addAllOptions,

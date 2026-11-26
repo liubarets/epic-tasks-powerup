@@ -157,10 +157,16 @@
   function statusOf(it) {
     return Core.itemStatus(data.card.idList, it, !!(data.st || {})[P.itemKey(it.id)], data.cfg.doneListIds);
   }
+  // The TO DO column for this card: the one it is in, else the newest sprint's (or the TO DO list from settings).
+  function todoId() {
+    if (Core.isTodoList(data.lists, data.cfg, data.card.idList)) return data.card.idList;
+    var cols = Core.todoColumns(data.lists, data.cfg);
+    return cols.length ? cols[cols.length - 1].id : data.cfg.todoListId;
+  }
   function statusLabel(st) {
     if (st === 'done') return 'DONE';
     if (st === 'prog') return String(listName(progressListId(), 'IN PROGRESS')).toUpperCase();
-    return String(listName(data.cfg.todoListId, 'TO DO')).toUpperCase();
+    return String(listName(todoId(), 'TO DO')).toUpperCase();
   }
   function moveCard(listId) {
     if (!listId || data.card.idList === listId) return Promise.resolve();
@@ -179,7 +185,7 @@
     ui.error = null;
     return enqueue(function () {
       var plan = Core.statusPlan({
-        listId: data.card.idList, itemId: itemId, status: st, todoListId: data.cfg.todoListId,
+        listId: data.card.idList, itemId: itemId, status: st, todoListId: todoId(),
         progListId: progressListId(), doneListIds: data.cfg.doneListIds,
         items: all.map(function (x) { return { id: x.id, state: x.state, prog: !!(data.st || {})[P.itemKey(x.id)] }; }),
       });

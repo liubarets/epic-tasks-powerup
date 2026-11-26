@@ -114,7 +114,7 @@
       var st = Todo.statusOf(data, info);
       var kid = info.kind === 'kid';
       // The list's own name, as on the board ("In progress", "TO DO"), or DONE.
-      var label = st === 'done' ? 'DONE' : esc(data.listName[st === 'prog' ? Todo.progressListId(data) : st === 'todo' ? data.cfg.todoListId : info.card.idList] || '');
+      var label = st === 'done' ? 'DONE' : esc(data.listName[st === 'prog' ? Todo.progressListId(data) : st === 'todo' ? todoOf(info) : info.card.idList] || 'TO DO');
       return '<button class="' + cls + (st === 'done' ? ' done' : ' linked') + (kid ? ' kid' : '') + '" data-action="status" data-item="' + esc(item.id) +
         '" data-member="' + esc(a.id) + '" title="Change status">' + who +
         ' <span class="st">' + (kid ? '☰ ' : '✓ ') + label + ' ▾</span></button>';
@@ -124,11 +124,14 @@
       '" title="Create a TO DO card for @' + esc(a.username) + '">' + who + ' <span class="st">＋ TO DO</span></button>';
   }
 
+  // The TO DO column of a card: the one it is in, else the epic's ("TO DO SP48", maybe not made yet).
+  function todoOf(info) { return Todo.isTodo(data, info.card.idList) ? info.card.idList : data.todo; }
+
   function statusLabel(st, info) {
     var up = function (x) { return String(x).toUpperCase(); };
     if (st === 'done') return 'DONE';
     if (st === 'prog') return up(data.listName[Todo.progressListId(data)] || 'IN PROGRESS');
-    if (st === 'todo') return up(data.listName[data.cfg.todoListId] || 'TO DO');
+    if (st === 'todo') return up(data.listName[todoOf(info)] || (data.sprint !== null ? EpicCore.sprintTodoName(data.sprint) : 'TO DO'));
     return up(data.listName[info.card.idList] || '');
   }
 
@@ -375,7 +378,7 @@
     if (ui.error) html += '<div class="error">' + esc(ui.error) + '</div>';
     // A re-render replaces the buttons: an open drop-down would point at nothing.
     if (window.EpicDropdown) EpicDropdown.close();
-    if (!d.cfg.todoListId) {
+    if (Todo.todoListError(d)) {
       html += '<div class="notice">Choose the list for TO DO cards. ' +
         '<button class="link" data-action="settings">Open settings</button></div>';
     }
