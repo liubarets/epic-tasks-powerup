@@ -26,6 +26,16 @@ Installed **once per Workspace**. Nobody on the team needs a browser extension.
 
 ---
 
+## Sprints
+
+- Lists named **"SPRINT 48"** (also "Sprint", "Спринт", "Спрінт") hold the epics of that sprint; each sprint has its own TO DO column, **"TO DO SP48"**.
+- Cards made from an epic go to the TO DO column of the epic's sprint. The column is **created automatically** the first time someone adds tasks from an epic of that sprint, to the right of DONE (after the TO DO SP columns already there). If two people make it at the same moment, one is kept and the other archived.
+- Every "TO DO SP<n>" column counts as a TO DO list: STORY POINTS on the card back, the yellow ⚡ ? badge, the TO DO status in the epic (named after the column, e.g. "TO DO SP48"). Unfinished tasks stay in their sprint's column.
+- The **panel** counts the **newest** sprint's column by default. Its switcher (the column name on the left) lists all TO DO SP columns, newest first, with points; picking an older one is personal and lasts until a newer sprint column appears. The people list and the Estimate window use the same column.
+- The newest sprint is the one with the highest number; numbering that starts again from 1 in a new year is recognised (a gap of more than 2 between numbers: "1" after "52").
+- An epic outside a sprint list uses the TO DO list from settings, as before. A board without TO DO SP columns works as before.
+- **A copy of an epic** (the team copies epics to the next sprint) does not take over the original's cards: the epic marks its Teamload data with its own id, and a copy starts clean.
+
 ## How it works
 
 | What | Where it is stored |
@@ -161,4 +171,5 @@ node --test test/core.test.js test/points.test.js   # logic
 python3 test/run_ui.py            # TASKS section UI against a mocked Trello (needs playwright + Chrome)
 python3 test/run_sp.py            # story points UI against a mocked Trello
 python3 test/run_kid.py           # "＋ Cards", checklist cards, epic ↔ card sync, points per checklist item
+python3 test/run_sprint.py        # sprints: TO DO SP<n> columns made on demand, the panel's sprint switcher, copied epics
 ```
