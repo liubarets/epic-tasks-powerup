@@ -10,6 +10,14 @@
 
   var WIDE = /[?&]wide=1/.test(location.search);
   if (WIDE) document.documentElement.classList.add('wide');
+  if (WIDE) {
+    // Trello focuses its own × when this window opens, which draws a blue ring around it: take the focus into the window.
+    var grabFocus = function () {
+      try { window.focus(); document.body.setAttribute('tabindex', '-1'); document.body.focus({ preventScroll: true }); } catch (e) {}
+    };
+    window.addEventListener('load', grabFocus);
+    setTimeout(grabFocus, 300); setTimeout(grabFocus, 1000);
+  }
   var ui = { mine: false, hideDone: false, busy: {}, error: null, menu: null, jobs: [] };
   var data = null;
 
