@@ -404,6 +404,7 @@ button.cp-v:disabled { cursor: default; opacity: .55; }
 
 /* The wide window (opened with ⤢): the epic across the whole window, items on one line */
 html.wide #root { padding: 4px 16px 16px; }
+html.wide body:focus { outline: none; }
 html.wide .item .body { flex-wrap: nowrap; }
 html.wide .item .title { flex: 0 1 46%; }
 html.wide .item .chips { flex: 1; }
