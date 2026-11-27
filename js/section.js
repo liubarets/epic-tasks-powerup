@@ -86,7 +86,7 @@
     return runOps(ops);
   }
 
-  // "＋ Assign to me": only adds my @username to the item. Cards are made later with the chip or "＋ Cards".
+  // "＋ Me" (assign to me): only adds my @username to the item. Cards are made later with the chip or "＋ Cards".
   function assignToMe(itemId) {
     var f = Todo.findItem(data, itemId);
     if (!f || !data.me || !data.me.username) return Promise.resolve();
@@ -101,9 +101,10 @@
     if (!cl) return Promise.resolve();
     var sorted = Core.sortByPriority(cl.checkItems);
     if (Core.sameOrder(sorted, cl.checkItems)) return Promise.resolve();
-    // Sequential "bottom" moves give a deterministic final order.
-    return runOps(sorted.map(function (it) {
-      return { method: 'PUT', path: '/cards/' + data.card.id + '/checkItem/' + it.id, params: { pos: 'bottom' } };
+    // Only the items out of place move, each straight to its new position (often one or two requests
+    // instead of one per item).
+    return runOps(Core.sortMoves(sorted).map(function (m) {
+      return { method: 'PUT', path: '/cards/' + data.card.id + '/checkItem/' + m.id, params: { pos: m.pos } };
     }));
   }
 
@@ -560,11 +561,18 @@
       if (!ok) { data = null; renderAuth(); return; }
       return Todo.load(t).then(function (d) {
         data = d;
-        // Keeps the epic and the cards in step: new items into people's checklist cards, priorities and dates
-        // into the cards, ticks both ways (see todo.js).
-        return Todo.sync(t, d);
-      }).then(render);
+        // Shown at once; then the epic and the cards are kept in step (new items into people's checklist cards,
+        // priorities and dates into the cards, ticks both ways, see todo.js) and the section is drawn again
+        // only if that changed something, so a list opened meanwhile stays open.
+        render();
+        var before = snapshot(d);
+        return Todo.sync(t, d).then(function () { if (data === d && snapshot(d) !== before) render(); });
+      });
     }).catch(handleError);
+  }
+
+  function snapshot(d) {
+    try { return JSON.stringify([d.checklists, d.linked, d.kids, d.links, d.groups, d.todo]); } catch (e) { return String(Math.random()); }
   }
 
   function handleError(e) {

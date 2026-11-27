@@ -59,7 +59,6 @@ section.cl.folded .cl-prog { display: none; }
 .cl-head .cl-prog { flex-basis: 100%; display: flex; align-items: center; gap: 8px; padding: 0 0 2px 46px; box-sizing: border-box; }
 .cl-head .cl-prog .cl-count { min-width: 24px; }
 .cl-actions { display: inline-flex; gap: 12px; margin-left: auto; }
-.link-busy { color: var(--muted); font-size: 12px; }
 .cl-actions { align-items: center; }
 /* "＋ My cards ▾" and its menu (inline, so the section grows instead of clipping a popup) */
 button.my-btn { background: var(--blue); color: #fff; border: 0; border-radius: 4px; font-size: 12px; line-height: 20px;
@@ -90,7 +89,6 @@ ul.dd-list { list-style: none; margin: 0; padding: 0; }
 .dd button.dd-item:hover, .dd button.dd-item:focus-visible { background: rgba(9,30,66,.06); outline: none; }
 .dd button.dd-item.on { font-weight: 600; }
 .dd-check { width: 18px; flex: none; color: var(--text); }
-.my-busy { color: var(--muted); font-size: 12px; }
 .my-menu { border: 1px solid var(--line); border-radius: 8px; padding: 6px; margin: 4px 0 8px; background: #fff;
   box-shadow: 0 4px 8px #091e4226; }
 .my-menu-head { font-size: 12px; color: var(--muted); padding: 2px 6px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
@@ -139,8 +137,6 @@ button.pbtn { flex: none; display: inline-flex; align-items: center; justify-con
   padding: 0 2px; border: 1px solid var(--line); border-radius: 4px; background: #fff; font-size: 13px; line-height: 1; color: var(--muted); cursor: pointer; }
 button.pbtn:hover { border-color: var(--blue); background: var(--blue-soft); }
 button.pbtn .pcv { font-size: 8px; color: var(--muted); margin-left: 1px; }
-select.prio { flex: none; width: 64px; height: 24px; min-height: 0; margin: 0; padding: 0 4px; font-size: 12px;
-  border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--text); }
 .body { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 2px 8px; min-height: 24px; }
 /* Name and chips on one line when they fit (they wrap under the name when not): an epic takes half the height */
 .title { word-break: break-word; line-height: 20px; padding-top: 2px; }
@@ -299,7 +295,6 @@ button.spbar-person:hover { background: var(--line); }
 .spbar-sep { width: 1px; height: 16px; background: var(--line); flex: none; }
 .spbar-num { font-size: 18px; font-weight: 700; line-height: 1; color: var(--blue); }
 .spbar-unit { margin-left: -6px; font-size: 13px; font-weight: 600; }
-.spbar-sub { font-size: 12px; color: var(--muted); }
 .spbar-msg { font-size: 12px; color: var(--muted); }
 button.spbar-est { display: inline-flex; align-items: center; gap: 4px; height: 22px; margin: 0; padding: 0 8px 0 6px; border: 0;
   border-radius: 6px; font-size: 12px; font-weight: 600; line-height: 1; }
@@ -368,7 +363,6 @@ button.est-chip:disabled { cursor: default; opacity: .55; }
 
 /* "STORY POINTS" section on a card with a checklist: a small scale under every open item */
 .cp-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 2px 0 6px; }
-.cp-sum { font-weight: 700; color: var(--blue); background: var(--blue-soft); border-radius: 4px; padding: 0 8px; }
 .cp-note { color: var(--muted); font-size: 12px; }
 .cp-cl { font-weight: 600; font-size: 12px; color: #44546f; margin: 8px 0 2px; }
 ul.cp-list { list-style: none; margin: 0; padding: 0; }
@@ -395,13 +389,6 @@ button.tsel:hover { background: rgba(9,30,66,.14); }
 button.tsel.none { background: #fff7d6; color: #7f5f01; }
 button.tsel:disabled { opacity: .6; cursor: default; }
 .cp-item.done .cp-name { text-decoration: line-through; color: var(--muted); }
-.cp-done { color: var(--green); font-size: 12px; }
-.cp-scale { display: flex; gap: 3px; flex-wrap: wrap; }
-button.cp-v { min-width: 30px; height: 22px; margin: 0; padding: 0 4px; border: 0; border-radius: 4px; background: var(--bg-soft);
-  color: var(--text); font-size: 12px; font-weight: 600; line-height: 22px; }
-button.cp-v:hover { background: var(--line); }
-button.cp-v.on { background: var(--blue); color: #fff; }
-button.cp-v:disabled { cursor: default; opacity: .55; }
 .est-title.est-item small { display: block; color: var(--muted); font-size: 11px; line-height: 14px; font-weight: 400;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 

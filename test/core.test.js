@@ -315,3 +315,27 @@ test('a card moved out of Done with every item still ticked', () => {
   assert.equal(f('t48', 0, 0), false, 'no items');
   assert.equal(C.leftDoneTicked({ listId: 't48', lists, cfg: {}, total: 1, checked: 1 }), false, 'no Done lists set up');
 });
+
+test('sortMoves keeps the longest ordered run and moves the rest between neighbours', () => {
+  const at = (ids, pos) => ids.map((id, i) => ({ id, pos: pos[i] }));
+  // current order a b c d e at 100…500; target: d a b c e → only d moves, before a
+  let sorted = at(['d', 'a', 'b', 'c', 'e'], [400, 100, 200, 300, 500]);
+  let mv = C.sortMoves(sorted);
+  assert.deepEqual(mv.map((m) => m.id), ['d']);
+  assert.ok(mv[0].pos > 0 && mv[0].pos < 100);
+  // already sorted → no moves
+  assert.deepEqual(C.sortMoves(at(['a', 'b'], [1, 2])), []);
+  // reversed → all but one move; the final order matches the target
+  sorted = at(['e', 'd', 'c', 'b', 'a'], [500, 400, 300, 200, 100]);
+  mv = C.sortMoves(sorted);
+  assert.equal(mv.length, 4);
+  const final = Object.fromEntries(sorted.map((x) => [x.id, x.pos]));
+  mv.forEach((m) => { final[m.id] = m.pos; });
+  assert.deepEqual(Object.keys(final).sort((x, y) => final[x] - final[y]), ['e', 'd', 'c', 'b', 'a']);
+  assert.ok(Object.values(final).every((p) => p > 0));
+  // items moved to the end go after the last kept one
+  sorted = at(['b', 'c', 'a'], [200, 300, 100]);
+  mv = C.sortMoves(sorted);
+  assert.deepEqual(mv.map((m) => m.id), ['a']);
+  assert.ok(mv[0].pos > 300);
+});

@@ -13,7 +13,7 @@ srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Q, dir
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 BASE = f"http://127.0.0.1:{srv.server_port}"
 ME = """S => { S.me = { id: 'mem' + '1'.padStart(21, '0'), username: 'maria_petrenko', fullName: 'Maria Petrenko' }; }"""
-PAGES = sys.argv[1:] or ["section.html", "section.html?wide=1", "cardpoints.html", "storypoints.html", "spbar.html", "estimate.html", "settings.html", "addall.html"]
+PAGES = sys.argv[1:] or ["section.html", "section.html?wide=1", "cardpoints.html", "storypoints.html", "spbar.html", "estimate.html", "settings.html"]
 JS = """() => [...document.querySelectorAll('button')].filter(b => b.offsetParent).map((b, i) => { b.setAttribute('data-probe', i);
   const r = b.getBoundingClientRect(), s = getComputedStyle(b);
   return { i, cls: b.className, txt: b.innerText.slice(0, 24), w: r.width, h: r.height, bw: s.borderTopWidth, bs: s.borderTopStyle, bg: s.backgroundColor }; })"""

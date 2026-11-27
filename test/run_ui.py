@@ -107,6 +107,8 @@ with sync_playwright() as p:
     st = S()
     retail_names = [i["name"] for i in st["checklists"][1]["checkItems"]]
     check(retail_names[0].startswith("🔴 Approve"), f"sort puts P1 first: {retail_names[0]}")
+    moves = st.get("posMoves", 0)
+    check(0 < moves < len(retail_names), f"sort moves only the items out of place ({moves} of {len(retail_names)})")
 
     # 4b) "Add all" moved to the TASKS header (connector), nothing per checklist
     check(page.locator("button[data-action=addall]").count() == 0, "no per-checklist 'Add all' buttons in the section")
@@ -220,49 +222,6 @@ with sync_playwright() as p:
     r = cp.evaluate("""() => window.__caps['card-back-section'](TrelloPowerUp.iframe()).then(sec => ({ title: sec.title, action: !!sec.action }))""")
     check(r["title"] == "TASKS" and not r["action"], f"TASKS header has no 'Add all' button: {r}")
 
-    def open_menu(patch=None, token=None):
-        mp = ctx.new_page()
-        mp.route("https://p.trellocdn.com/power-up.min.js", lambda rr: rr.fulfill(body=MOCK, content_type="application/javascript"))
-        mp.route("https://p.trellocdn.com/power-up.min.css", lambda rr: rr.fulfill(body="", content_type="text/css"))
-        if patch:
-            mp.add_init_script("window.__mockPatch = " + patch)
-        if token:
-            mp.add_init_script("window.__args = " + json.dumps({"token": token}))
-        mp.goto(f"{BASE}/addall.html")
-        mp.wait_for_selector(".menu, .msg:not(.muted)")
-        return mp
-
-    mp = open_menu()
-    menu = [x.strip() for x in mp.locator(".menu button").all_inner_texts()]
-    check(menu == ["All tasks (10)", "Spring merch 24.11 (6)", "Retail SDK - 26.11 (4)"], f"menu: {menu}")
-    mp.screenshot(path=str(OUT / "4-add-menu.png"))
-    mp.locator(".menu button", has_text="Retail SDK").click()
-    mp.wait_for_function("window.__state.closed === 1")
-    st = mp.evaluate("window.__state")
-    created = [x["q"]["name"] for x in st["requests"] if x["method"] == "POST" and x["path"] == "/cards"]
-    retail_open = [i["name"].split(" @")[0] for i in st["checklists"][1]["checkItems"] if i["state"] != "complete"]
-    todo_order = [c["name"] for c in sorted([c for c in st["cards"].values() if c["idList"] == "L_todo"], key=lambda c: c["pos"])]
-    check([n.split(" — ")[0] for n in todo_order] == retail_open and len(created) == 4,
-          f"Retail: 4 cards created in parallel, TO DO list keeps the checklist order: {todo_order}")
-    check(st["alerts"] == ["✓ Created 4 TO DO cards"] and st["closed"] == 1, f"success alert + popup closed: {st['alerts']}")
-    check(len(st["plugin"]["card"]["links"]) == 2 + 4, "links saved for the new cards")
-    check(not any("former_employee" in json.dumps(x) for x in created), "non-members are skipped")
-    mp.close()
-
-    mp = open_menu("S => { S.checklists[1].checkItems.forEach(i => i.state = 'complete'); }")
-    menu = [x.strip() for x in mp.locator(".menu button").all_inner_texts()]
-    check(menu == ["Spring merch 24.11 (6)"], f"one checklist left -> no 'All tasks': {menu}")
-    mp.close()
-
-    mp = open_menu("S => { S.checklists.forEach(cl => cl.checkItems.forEach(i => i.state = 'complete')); }")
-    check(mp.locator(".menu").count() == 0 and mp.inner_text(".msg").startswith("Nothing to add"), "nothing left -> message instead of the menu")
-    mp.close()
-
-    mp = open_menu("S => { delete S.plugin.board.cfg.todoListId; }")
-    check("Choose the TO DO list" in mp.inner_text(".msg"), "no TO DO list configured -> hint")
-    mp.close()
-
-    # (the "Add all" background job is no longer reachable from the UI: the "Everyone" row of "＋ Cards" replaced it)
 
     # priority change is finished by the connector even if the epic is closed right after the click
     secp = ctx.new_page()

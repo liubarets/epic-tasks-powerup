@@ -127,6 +127,7 @@
       if (q.name !== undefined) f.it.name = q.name;
       if (q.state) { f.it.state = q.state; logTick(f.it); }
       if (q.pos === 'bottom') { f.it.pos = ++seq * 100000; f.cl.checkItems.sort(function (a, b) { return a.pos - b.pos; }); }
+      else if (q.pos !== undefined && !isNaN(parseFloat(q.pos))) { f.it.pos = parseFloat(q.pos); S.posMoves = (S.posMoves || 0) + 1; f.cl.checkItems.sort(function (a, b) { return a.pos - b.pos; }); }
       return json(clone(f.it));
     }
     if (method === 'GET' && (m = path.match(/^\/cards\/([^/]+)\/actions$/))) {
@@ -283,5 +284,21 @@
         authorize: function () { S.noToken = false; S.authCount = (S.authCount || 0) + 1; return Promise.resolve(); } };
     },
   };
+  // Profiling: window.__lat = { pm: ms per call to Trello (postMessage), rest: ms per REST request } adds real-life delays.
+  if (window.__lat) {
+    var lat = window.__lat, wait = function (ms, v) { return new Promise(function (res) { setTimeout(function () { res(v); }, ms); }); };
+    S.pmCalls = 0;
+    ['card', 'board', 'cards', 'member', 'lists', 'get', 'set'].forEach(function (k) {
+      var f = t[k]; t[k] = function () { S.pmCalls++; var r = f.apply(t, arguments); return Promise.resolve(r).then(function (v) { return wait(lat.pm || 0, v); }); };
+    });
+    var gr = t.getRestApi;
+    t.getRestApi = function () { var api = gr(); var g = api.getToken; api.getToken = function () { S.pmCalls++; return g().then(function (v) { return wait(lat.pm || 0, v); }); }; return api; };
+    var mf = window.fetch;
+    window.fetch = function (url, init) {
+      var u = new URL(url);
+      if (!/trello\.com$/.test(u.hostname)) return mf.apply(this, arguments);
+      return wait(lat.rest || 0).then(function () { return mf(url, init); });
+    };
+  }
   window.TrelloPowerUp = { iframe: function () { return t; }, initialize: function (caps) { window.__caps = caps; } };
 })();

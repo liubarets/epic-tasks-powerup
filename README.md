@@ -6,8 +6,8 @@ It adds a **"TASKS"** section to the back of an epic card:
 
 - **⤢ Open wide** (next to ⟳ ⚙): the same TASKS in a large Trello window over the board, with nothing folded (the window scrolls), each item on one line: name on the left, people on the right. Trello gives a card no wider layout and a Power-Up cannot change the card's own width, so this is the wide view, with nothing to install.
 - **Big epics fit without scrolling.** Trello cuts a Power-Up's card section at 1500 px (no scroll inside), so an item's name and its chips share one line when they fit, and when the epic is still taller, checklists fold to a one-line header (name, done/total, Sort, ＋ Cards): first the finished ones, then those with nothing left to hand out, then from the bottom. A hint says so. A click on a checklist's name opens or folds it; opening one folds another if needed, and what you opened by hand stays open.
-- Every checklist is a block like Trello's own panels: a thin frame with rounded corners, the header on Trello's light grey (priority, name, "Sort by priority" and "＋ Cards" on the first line; done/total and the progress bar on a line of their own under the name, as in Trello's checklists), its items on white and set in a little under it. The priority of a checklist and of each item is a narrow button showing just the emoji (— when none); a click opens the list below it (🔴 P1 · Urgent … ↪️ NS · Next sprint). The chevron square next to a checklist's name folds or opens it. Chips to add a card say just "＋ TO DO" (the card still goes to the sprint's TO DO SP<n> column).
-- A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3 / ⚪ P4 low / ↪️ NS next sprint) and a "↕ Sort by priority" button (P1 … P4, then no priority, then NS at the bottom). **↪️ NS** items (or every item of an NS checklist that has no priority of its own) are not offered by "＋ Cards" / "＋ All cards" and are not added to people's checklist cards by themselves; their chip still makes a card if someone wants it now.
+- Every checklist is a block like Trello's own panels: a thin frame with rounded corners, the header on Trello's light grey (priority, name, "Sort by priority" and "＋ Cards" on the first line; done/total and the progress bar on a line of their own under the name, as in Trello's checklists), its items on white and set in a little under it, with a thin line between them; an item's name starts at the top of its row, level with its priority button and first chip. The priority of a checklist and of each item is a narrow button showing just the emoji (— when none); a click opens the list below it (🔴 P1 · Urgent … ↪️ NS · Next sprint). The chevron square next to a checklist's name folds or opens it. Chips to add a card say just "＋ TO DO" (the card still goes to the sprint's TO DO SP<n> column).
+- A **priority** for every checklist item (🔴 P1 / 🟠 P2 / 🟢 P3 / ⚪ P4 low / ↪️ NS next sprint) and a "↕ Sort by priority" button (P1 … P4, then no priority, then NS at the bottom; only the items out of place are moved, so it usually takes one or two requests). **↪️ NS** items (or every item of an NS checklist that has no priority of its own) are not offered by "＋ Cards" / "＋ All cards" and are not added to people's checklist cards by themselves; their chip still makes a card if someone wants it now.
 - A chip for **every assignee** next to each item: `@username ＋ TO DO`. A click creates a card in your TO DO list assigned to that person. **The item stays in the epic.**
 - After that the chip shows the status: `✓ TO DO`, `✓ In progress`, `✓ DONE`. A click opens a drop-down list styled like Trello's (title, ×, ✓ on the current status) that always opens **down** from the chip; anyone can change the status there (TO DO / In progress / DONE). A separate card moves to that list. **An item in a checklist card has its own status**: In progress moves the whole card out of TO DO, but the card's other items keep their status; DONE ticks the item, and when all items of the card are done the card moves to Done. A checklist card moved to a Done list by hand makes all its items DONE (they get ticked the next time the epic or the card is opened). **Moved back out of Done** (to a TO DO column or In progress) while all its items are still ticked, the card gets a warning everywhere, with no buttons: a yellow notice in its STORY POINTS section, a yellow "⚠ Statuses" badge on the card on the board, and "☰ DONE ⚠" on the people's chips in the epic. It goes away as soon as one item is set back to TO DO / In progress, or the card returns to Done. Ticking every item in Trello's own checklist does not move a card to Done by itself (that would send a card someone just took out of Done straight back); use the status DONE from Teamload for that. The in-progress list is found **by its name only**, never by where it stands, so reordering columns changes nothing: "In progress" first, else a name with "progress", "Doing", "WIP", "В роботі"/"У роботі", "В процесі"; TO DO columns and Done lists never count. A board with no such column offers only TO DO and DONE.
 - "＋ Me" (Assign to me): adds your @username to an item you are not mentioned in. It does not create a TO DO card: use your chip or "＋ Cards" for that.
@@ -120,12 +120,12 @@ The first time someone opens an epic, the "TASKS" section shows a **Connect** bu
 - Trello doesn't let a Power-Up change how the **native** checklist looks. That's why buttons and priorities live in a separate section on the card back, while the native checklist stays as is (the priority emoji is visible there as well). Items are ticked in the native checklist.
 - The section appears only on cards that have a checklist.
 - The TO DO list must be on the **same board**.
-- The section refreshes when the card is opened, after every action in it, and with the ⟳ button. There is no live sync with other people's changes while the card is open.
+- The section refreshes when the card is opened, after every action in it, and with the ⟳ button. It is drawn as soon as the epic and its cards are loaded; keeping the epic and people's cards in step runs after that and redraws only if something changed. There is no live sync with other people's changes while the card is open.
 - Trello mobile apps may not show custom Power-Up sections. Emoji priorities and TO DO cards are visible there as regular Trello data.
 - Assignees are taken from `@username` in the item text. If the person is not a board member, their chip is grey and inactive.
 - After an update, GitHub Pages may serve the old version from cache for up to 10 minutes.
 - Trello doesn't let a Power-Up draw inside its own checklist, so the story point and status drop-downs live in a STORY POINTS section under it.
-- The panel's "N unestimated" counts cards whose field is empty. A card estimated by items counts as unestimated only while none of its open items has points; the Estimate window lists every unestimated item.
+- The panel's "Unestimated" counts cards whose field is empty. A card estimated by items counts as unestimated only while none of its open items has points; the Estimate window lists every unestimated item.
 - Removing an item from your checklist card by hand doesn't take you off it in the epic: the item is added again the next time someone opens the epic. Change the epic instead.
 - Story points: Trello doesn't tell Power-Ups which board filter is on, and doesn't let them add content to the middle of the board header or list headers. That's why the person is chosen in the panel at the bottom of the board and the SP button sits among the other header buttons. Card badges always come after Trello's own icons.
 
@@ -146,16 +146,14 @@ estimate.html       "Estimate story points" window (opened from the panel)
 spedit.html         quick story point values (card back badge)
 cardpoints.html     "STORY POINTS" section: points and status drop-downs for every item of a card with a checklist
 js/dropdown.js      drop-down list like Trello's, drawn in the iframe so it always opens down
-addall.html         "Add to TO DO" menu (opened from the TASKS header)
 auth.html           connect window
 auth-redirect.html  OAuth 2.0 callback
 js/config.js        ← the only file you need to edit
 js/core.js          logic (priorities, mentions, sorting)
 js/todo.js          loading the epic, link validity, creating TO DO cards and checklist cards, epic ↔ card sync
-js/auth.js          authorization + REST
+js/auth.js          authorization + REST (the token is kept in memory for a few minutes)
 js/section.js       section UI
-js/client.js        connector (capabilities, badges, background jobs)
-js/addall.js        "Add to TO DO" menu + progress
+js/client.js        connector (capabilities, badges; finishes REST calls handed over by the TASKS section)
 js/settings.js      settings UI
 js/points.js        story points: [n] parsing, the field, sums, moving [n] into the field
 js/spbar.js         story points panel (live)
@@ -165,7 +163,7 @@ js/spedit.js        quick values popup
 js/cardpoints.js    STORY POINTS section (item points, the card's sum)
 css/style.css
 img/icon-gray.svg, img/teamload-icon.svg/.png (app icon and SP button), img/bolt.svg
-test/               tests (not deployed)
+test/               tests (not deployed); test/trello-buttons.css: Trello's button rules for run_states.py
 ```
 
 ## Tests

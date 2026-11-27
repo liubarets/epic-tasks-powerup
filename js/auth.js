@@ -20,20 +20,35 @@
     return o;
   }
 
-  function getToken(t) {
+  // The token is asked from Trello (a message to the parent page) once and kept for a few minutes: every
+  // REST call needs it, and an epic makes several at once. A missing token is not kept, so connecting
+  // takes effect at once; a 401 drops the kept one.
+  var kept = null;
+  var KEEP_MS = 5 * 60 * 1000;
+  function fetchToken(t) {
     if (useOAuth2) {
       return Promise.resolve(t.getOAuth2ApiClient().getAccessToken()).catch(function () { return null; });
     }
     return Promise.resolve(t.getRestApi().getToken()).catch(function () { return null; });
   }
+  function getToken(t) {
+    if (kept && Date.now() - kept.at < KEEP_MS) return kept.p;
+    var p = fetchToken(t);
+    var k = kept = { at: Date.now(), p: p };
+    p.then(function (tok) { if (!tok && kept === k) kept = null; });
+    return p;
+  }
+  function forgetToken() { kept = null; }
 
   function isAuthorized(t) {
     return getToken(t).then(function (tok) { return !!tok; });
   }
 
   function authorize(t) {
-    if (useOAuth2) return t.getOAuth2ApiClient().authorize({ scopes: C.OAUTH2_SCOPES });
-    return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never' });
+    forgetToken();
+    var p = useOAuth2 ? t.getOAuth2ApiClient().authorize({ scopes: C.OAUTH2_SCOPES })
+      : t.getRestApi().authorize({ scope: 'read,write', expiration: 'never' });
+    return Promise.resolve(p).then(function (v) { forgetToken(); return v; });
   }
 
   function AuthError(msg) { var e = new Error(msg); e.isAuthError = true; return e; }
@@ -61,7 +76,7 @@
         init.body = JSON.stringify(body);
       }
       return fetch(url.toString(), init).then(function (res) {
-        if (res.status === 401) throw AuthError('Access denied (401). Please reconnect.');
+        if (res.status === 401) { forgetToken(); throw AuthError('Access denied (401). Please reconnect.'); }
         if (!res.ok) {
           return res.text().then(function (txt) {
             throw new Error('Trello API ' + res.status + ': ' + (txt || res.statusText));

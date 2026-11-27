@@ -1,53 +1,21 @@
 /* global TrelloPowerUp, EpicAuth, EpicTodo, EpicPoints */
 // Iframe connector: tells Trello which capabilities this Power-Up provides.
-// It stays loaded while the board is open, so it also runs work in the background:
-// - "Add all to TO DO": the popup only picks what to add and shows progress; closing it doesn't stop the job;
-// - priority changes and sorting from the TASKS section: they finish even if the epic is closed at once.
+// It stays loaded while the board is open, so it also finishes work handed over by the TASKS section:
+// priority changes and sorting go on even if the epic is closed at once.
 (function () {
   'use strict';
   var ICON = new URL('./img/icon-gray.svg', window.location.href).href;
   var me = Math.random().toString(36).slice(2);  // this connector (another board tab has its own)
-  var contexts = {};  // popup token -> { t, ready: Promise<cardId> }
-  var tokens = [];
-  var jobs = {};      // cardId -> { total, done, finished, error }
   var lastT = null;   // any recent context: REST calls only need the member's token
   var queue = Promise.resolve();
   var channel = null;
+  // The channel's old name stays: renaming it would break sections still open on the old code.
   try { channel = new BroadcastChannel('epic-tasks-addall'); } catch (e) { channel = null; }
 
   function post(msg) {
     if (!channel) return;
     msg.from = me;
     channel.postMessage(msg);
-  }
-
-  function plural(n) { return n + ' TO DO card' + (n === 1 ? '' : 's'); }
-
-  function publish(cardId) { post({ type: 'progress', cardId: cardId, job: jobs[cardId] }); }
-
-  function running(job) { return !!job && !job.finished && !job.error; }
-
-  function startJob(t, cardId, key) {
-    if (running(jobs[cardId])) return Promise.resolve();
-    var job = jobs[cardId] = { total: 0, done: 0, finished: false, error: null };
-    publish(cardId);
-    return EpicTodo.load(t).then(function (d) {
-      var err = EpicTodo.todoListError(d);
-      if (err) throw err;
-      var list = EpicTodo.jobsFor(d, key);
-      job.total = list.length;
-      publish(cardId);
-      return EpicTodo.addMany(t, d, list, function (n) { job.done = n; publish(cardId); });
-    }).then(function (n) {
-      job.finished = true;
-      publish(cardId);
-      return t.alert(n ? { message: '✓ Created ' + plural(n), display: 'success', duration: 5 }
-                       : { message: 'Nothing to add.', display: 'info', duration: 5 });
-    }, function (e) {
-      job.error = (e && e.message) || String(e);
-      publish(cardId);
-      return t.alert({ message: job.error, display: 'error', duration: 10 });
-    }).catch(function () {});
   }
 
   // REST calls handed over by the TASKS section (priority changes, sorting), so they finish even if
@@ -71,29 +39,8 @@
   if (channel) {
     channel.onmessage = function (ev) {
       var m = ev.data || {};
-      if (m.type === 'ops') { if (lastT && m.ops && m.ops.length) runOps(m); return; }
-      var ctx = m.token && contexts[m.token];
-      if (!ctx) return;  // that popup belongs to another board tab
-      ctx.ready.then(function (cardId) {
-        if (m.type === 'hello') {
-          post({ type: 'hello-ack', token: m.token, cardId: cardId, job: jobs[cardId] || null });
-        } else if (m.type === 'start') {
-          post({ type: 'started', token: m.token, cardId: cardId });
-          startJob(ctx.t, cardId, m.key);
-        }
-      });
+      if (m.type === 'ops' && lastT && m.ops && m.ops.length) runOps(m);
     };
-  }
-
-  // "＋ Add all to TO DO" in the TASKS header. Trello only allows opening a popup right in the click
-  // handler (no waiting for data first), so the menu loads its data inside the popup (addall.html).
-  function addAllMenu(t) {
-    var token = me + '.' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    var popup = t.popup({ title: 'Add to TO DO', url: './addall.html', args: { token: token }, height: 120 });
-    contexts[token] = { t: t, ready: Promise.resolve(t.card('id')).then(function (c) { return c.id; }) };
-    tokens.push(token);
-    if (tokens.length > 20) delete contexts[tokens.shift()];
-    return popup;
   }
 
   // ---- Story points ----
@@ -156,13 +103,15 @@
   var fieldQueue = Promise.resolve();
   var settingField = {};
   // The card's checklists from Trello's REST API (t.card('checklists') returns none on a real board),
-  // cached for a few seconds per card and state: Trello asks for badges often.
+  // cached per card and state (number of items and ticks): Trello asks for badges often, and a new item or
+  // tick makes a new key. A minute at most, for the rare change that keeps both numbers (one tick, one untick).
   var listCache = {};
   function checklistsOf(t, card) {
     var b = card.badges || {};
     var key = card.id + ':' + b.checkItems + ':' + b.checkItemsChecked;
     var hit = listCache[key];
-    if (hit && Date.now() - hit.at < 5000) return hit.p;
+    if (hit && Date.now() - hit.at < 60000) return hit.p;
+    Object.keys(listCache).forEach(function (k) { if (k.indexOf(card.id + ':') === 0) delete listCache[k]; });
     var p = EpicAuth.isAuthorized(t).then(function (ok) {
       if (!ok) return null;
       return EpicAuth.request(t, 'GET', '/cards/' + card.id + '/checklists', {
@@ -170,6 +119,9 @@
       });
     });
     listCache[key] = { at: Date.now(), p: p };
+    // Not connected yet, or the request failed: ask again next time.
+    var forget = function () { if (listCache[key] && listCache[key].p === p) delete listCache[key]; };
+    p.then(function (v) { if (v == null) forget(); }, forget);
     return p;
   }
   function itemsValue(t, card) {

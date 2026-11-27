@@ -120,6 +120,33 @@
       .map(function (x) { return x.it; });
   }
 
+  // Positions that put items into the order `sorted` with as few moves as possible: the longest run that is
+  // already in order stays where it is, every other item gets a position between its new neighbours.
+  // Trello takes any positive number as a position, so the moves don't depend on each other.
+  // Returns [{ id, pos }] for the items to move.
+  function sortMoves(sorted) {
+    var pos = sorted.map(function (it) { return Number(it.pos) || 0; });
+    var n = pos.length, len = [], prev = [], best = -1;
+    for (var i = 0; i < n; i++) {  // longest strictly increasing run of current positions (n is small)
+      len[i] = 1; prev[i] = -1;
+      for (var j = 0; j < i; j++) if (pos[j] < pos[i] && len[j] + 1 > len[i]) { len[i] = len[j] + 1; prev[i] = j; }
+      if (best === -1 || len[i] > len[best]) best = i;
+    }
+    var keep = {};
+    for (var k = best; k !== -1; k = prev[k]) keep[k] = true;
+    var moves = [], last = 0, STEP = 16384;
+    for (var a = 0; a < n; a++) {
+      if (keep[a]) { last = pos[a]; continue; }
+      var b = a;
+      while (b < n && !keep[b]) b++;  // items a … b-1 go between `last` and the next kept item
+      var hi = b < n ? pos[b] : last + STEP * (b - a + 1);
+      for (var m = a; m < b; m++) moves.push({ id: sorted[m].id, pos: last + (hi - last) * (m - a + 1) / (b - a + 1) });
+      last = moves[moves.length - 1].pos;
+      a = b - 1;
+    }
+    return moves;
+  }
+
   function sameOrder(a, b) {
     if (a.length !== b.length) return false;
     for (var i = 0; i < a.length; i++) if (a[i].id !== b[i].id) return false;
@@ -468,6 +495,7 @@
     allAssignees: allAssignees,
     sortByPriority: sortByPriority,
     sameOrder: sameOrder,
+    sortMoves: sortMoves,
     linkKey: linkKey,
     pruneLinks: pruneLinks,
     isCardDone: isCardDone,

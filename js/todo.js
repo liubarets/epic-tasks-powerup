@@ -1,6 +1,6 @@
 /* global EpicCore, EpicAuth */
 // Shared "TO DO cards" logic: loading the epic, link validity, creating cards.
-// Used by the card-back section (section.js) and by the "Add all to TO DO" header button (client.js).
+// Used by the card-back section (section.js) and by the connector (client.js), which finishes its REST calls.
 (function (root) {
   'use strict';
   var Core = root.EpicCore;
@@ -363,28 +363,6 @@
     });
   }
 
-  // Menu entries for "Add all to TO DO": one per checklist that has something to add, plus
-  // "All tasks" when more than one does. [{ key: 'all' | checklistId, text, jobs }]
-  function addAllOptions(d) {
-    var groups = d.checklists
-      .map(function (cl) { return { key: cl.id, text: cl.name, jobs: pendingInChecklist(d, cl) }; })
-      .filter(function (g) { return g.jobs.length; });
-    if (groups.length > 1) {
-      var all = [];
-      groups.forEach(function (g) { all = all.concat(g.jobs); });
-      groups.unshift({ key: 'all', text: 'All tasks', jobs: all });
-    }
-    return groups;
-  }
-
-  // Jobs for a menu choice, recomputed from fresh data ("all" also works when only one checklist is left).
-  function jobsFor(d, key) {
-    var opts = addAllOptions(d);
-    var hit = opts.filter(function (o) { return o.key === key; })[0];
-    if (!hit && key === 'all' && opts.length === 1) hit = opts[0];
-    return hit ? hit.jobs : [];
-  }
-
   // Creates cards for a list of jobs from pendingInChecklist(); resolves with the number created.
   // Up to 3 cards are created at a time; onProgress(done, total) is called after every card.
   function addMany(t, d, jobs, onProgress) {
@@ -684,9 +662,6 @@
     return addMany(t, d, jobs, onProgress);
   }
 
-  function addMyChecklistCard(t, d, checklistId) { return addChecklistCards(t, d, checklistId, d.me.id); }
-  function addMySeparateCards(t, d, checklistId) { return addSeparateCards(t, d, checklistId, d.me.id); }
-
   // ---- Keeping the epic and the cards in step (runs when someone opens the epic) ----
 
   // A new item for a person who has a checklist card for its checklist goes into that card.
@@ -968,8 +943,6 @@
     statusOf: statusOf,
     setStatus: setStatus,
     myPending: myPending,
-    addMyChecklistCard: addMyChecklistCard,
-    addMySeparateCards: addMySeparateCards,
     updateCardField: updateCardField,
     sync: sync,
     todoListError: todoListError,
@@ -977,11 +950,6 @@
     ensureTodo: ensureTodo,
     addToTodo: addToTodo,
     addMany: addMany,
-    addAllOptions: addAllOptions,
-    pendingInChecklist: pendingInChecklist,
-    progressListId: progressListId,
-    statusOf: statusOf,
-    setStatus: setStatus,
     pendingPeople: pendingPeople,
     syncKidItems: syncKidItems,
     kidCardsOf: kidCardsOf,
@@ -989,6 +957,5 @@
     itemPriorityOps: itemPriorityOps,
     addChecklistCards: addChecklistCards,
     addSeparateCards: addSeparateCards,
-    jobsFor: jobsFor,
   };
 })(this);
