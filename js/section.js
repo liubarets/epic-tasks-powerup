@@ -8,6 +8,8 @@
   var t = TrelloPowerUp.iframe(EpicAuth.iframeOptions());
   var root = document.getElementById('root');
 
+  var WIDE = /[?&]wide=1/.test(location.search);
+  if (WIDE) document.documentElement.classList.add('wide');
   var ui = { mine: false, hideDone: false, busy: {}, error: null, menu: null, jobs: [] };
   var data = null;
 
@@ -123,7 +125,7 @@
     }
     if (item.state === 'complete') return '<span class="' + cls + '">' + who + '</span>';
     return '<button class="' + cls + ' add" data-action="todo" data-item="' + esc(item.id) + '" data-member="' + esc(a.id) +
-      '" title="Create a TO DO card for @' + esc(a.username) + '">' + who + ' <span class="st">＋ ' + esc(todoName()) + '</span></button>';
+      '" title="Create a TO DO card for @' + esc(a.username) + '">' + who + ' <span class="st">＋ TO DO</span></button>';
   }
 
   // Where new cards go: the epic's TO DO column by name ("TO DO SP48", even before it is made), else "TO DO".
@@ -177,22 +179,17 @@
     if (ui.hideDone && done) return '';
     var level = Core.parsePriority(item.name);
 
-    var opts = '<option value="0"' + (level ? '' : ' selected') + '>—</option>' +
-      Core.PRIORITIES.map(function (p) {
-        return '<option value="' + p.level + '"' + (p.level === level ? ' selected' : '') + '>' + p.emoji + ' ' + p.short + '</option>';
-      }).join('');
-
     var chips = people.map(function (a) { return chipHtml(item, a); }).join('');
     if (!mine && !done && data.me) {
       var bk = item.id + ':' + data.me.id;
       chips += ui.busy[bk] ? '<span class="chip busy">…</span>' :
         '<button class="chip ghost" data-action="assign" data-item="' + esc(item.id) + '"' +
-        ' title="Add @' + esc(data.me.username) + ' to this item (no TO DO card yet)">＋ Assign to me</button>';
+        ' title="Assign to me: add @' + esc(data.me.username) + ' to this item (no TO DO card yet)">＋ Me</button>';
     }
     var due = item.due ? '<span class="due' + (!done && new Date(item.due) < new Date() ? ' overdue' : '') + '">' + fmtDate(item.due) + '</span>' : '';
 
     return '<li class="item' + (done ? ' done' : '') + '">' +
-      '<select class="prio" data-action="prio" data-item="' + esc(item.id) + '" title="Priority">' + opts + '</select>' +
+      prioBtn('prio', 'data-item="' + esc(item.id) + '"', level) +
       '<div class="body"><div class="title">' + esc(Core.cleanTitle(item.name)) + due + '</div>' +
       '<div class="chips">' + chips + '</div></div></li>';
   }
@@ -408,12 +405,28 @@
 
   // Priority of a whole checklist (a task of the epic): the emoji at the start of the checklist name.
   function clPrioHtml(cl) {
-    var level = Core.parsePriority(cl.name);
-    var opts = '<option value="0"' + (level ? '' : ' selected') + '>—</option>' +
-      Core.PRIORITIES.map(function (p) {
-        return '<option value="' + p.level + '"' + (p.level === level ? ' selected' : '') + '>' + p.emoji + ' ' + p.short + '</option>';
-      }).join('');
-    return '<select class="prio cl-prio" data-action="clprio" data-cl="' + esc(cl.id) + '" title="Priority of this task">' + opts + '</select>';
+    return prioBtn('clprio', 'data-cl="' + esc(cl.id) + '"', Core.parsePriority(cl.name));
+  }
+
+  // The priority as a narrow button (the emoji, or — when none); a click opens the list below it (js/dropdown.js).
+  function prioBtn(action, attr, level) {
+    var p = Core.byLevel(level);
+    return '<button type="button" class="pbtn' + (action === 'clprio' ? ' cl-prio' : '') + '" data-action="' + action + '" ' + attr +
+      ' data-level="' + (level || 0) + '" title="Priority: ' + (p ? p.short + ' · ' + p.title : 'none') + '">' +
+      (p ? p.emoji : '—') + '<span class="pcv">▾</span></button>';
+  }
+  function prioMenu(el) {
+    var cur = Number(el.getAttribute('data-level')) || 0;
+    var isCl = el.getAttribute('data-action') === 'clprio';
+    var id = el.getAttribute(isCl ? 'data-cl' : 'data-item');
+    var opts = [{ level: 0, text: '—  No priority' }].concat(Core.PRIORITIES.map(function (p) {
+      return { level: p.level, text: p.emoji + '  ' + p.short + ' · ' + p.title };
+    }));
+    return EpicDropdown.open(el, { title: 'Priority', resize: resize, items: opts.map(function (o) {
+      return { text: o.text, checked: o.level === cur, onPick: function () {
+        if (o.level !== cur) run(isCl ? setChecklistPriority(id, o.level) : setPriority(id, o.level));
+      } };
+    }) });
   }
 
   function setChecklistPriority(clId, level) {
@@ -459,7 +472,8 @@
     var html = '<div class="toolbar">' +
       '<span class="spacer"></span>' +
       '<button class="icon" data-action="refresh" title="Refresh">⟳</button>' +
-      '<button class="icon" data-action="settings" title="Settings">⚙</button>' + allCardsHtml() + '</div>' + myMenuHtml(allCl);
+      '<button class="icon" data-action="settings" title="Settings">⚙</button>' +
+      (WIDE ? '' : '<button class="icon" data-action="wide" title="Open wide, in a window over the board">⤢</button>') + allCardsHtml() + '</div>' + myMenuHtml(allCl);
     if (ui.error) html += '<div class="error">' + esc(ui.error) + '</div>';
     html += '<div class="fold-hint" style="display:none">Some checklists are folded so the whole epic fits. Click a checklist’s name to open it.</div>';
     // A re-render replaces the buttons: an open drop-down would point at nothing.
@@ -480,7 +494,8 @@
   // checklists fold to their header: first those with nothing left to do, then those with nothing left to
   // hand out, then from the bottom. A click on a checklist's name folds or opens it; what was opened by hand
   // stays open (the oldest of those folds again only if they don't fit together). Choices last for the page.
-  var MAX_H = 1480;
+  // In the wide window (t.modal, ?wide=1) the page scrolls, so nothing folds there.
+  var MAX_H = WIDE ? Infinity : 1480;
   ui.opened = [];   // checklist ids opened by hand, oldest first
   ui.closed = {};   // checklist ids folded by hand
   function height() { return Math.ceil(root.getBoundingClientRect().height) + 12; }
@@ -590,6 +605,17 @@
       if (ui.busy[ak]) return;
       ui.busy[ak] = 1; render();
       run(assignToMe(el.getAttribute('data-item'))).then(function () { delete ui.busy[ak]; render(); });
+    } else if (a === 'prio' || a === 'clprio') {
+      if (ui.menu) {
+        // Close the "＋ Cards" menu first (the page shifts), then open the list where the button is now.
+        var pa = a, pid = el.getAttribute(a === 'clprio' ? 'data-cl' : 'data-item');
+        ui.menu = null; ui.jobs = ui.jobs.filter(activeJob); render();
+        el = root.querySelector('[data-action="' + pa + '"][' + (pa === 'clprio' ? 'data-cl' : 'data-item') + '="' + pid + '"]');
+        if (!el) return;
+      }
+      prioMenu(el);
+    } else if (a === 'wide') {
+      t.modal({ url: './section.html?wide=1', title: data.card.name, fullscreen: false, height: 900, accentColor: '#f1f2f4' });
     } else if (a === 'fold') {
       toggleFold(el.getAttribute('data-cl'));
     } else if (a === 'sort') {
@@ -618,11 +644,7 @@
   root.addEventListener('change', function (e) {
     var el = e.target;
     var a = el.getAttribute('data-action');
-    if (a === 'prio') {
-      run(setPriority(el.getAttribute('data-item'), Number(el.value)));
-    } else if (a === 'clprio') {
-      run(setChecklistPriority(el.getAttribute('data-cl'), Number(el.value)));
-    } else if (a === 'mine') {
+    if (a === 'mine') {
       ui.mine = el.checked; render();
     } else if (a === 'hideDone') {
       ui.hideDone = el.checked; render();
