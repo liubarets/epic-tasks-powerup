@@ -21,6 +21,12 @@ def check(cond, msg):
     if not cond:
         fails.append(msg)
 
+def pick_prio(pg, btn, level):
+    """Priority is a narrow button now: click it and pick from the list (— = 0, P1 = 1 … NS = 5)."""
+    btn.click()
+    pg.wait_for_selector(".dd .dd-item")
+    pg.locator(".dd .dd-item").nth(level).click()
+
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox"])
     page = b.new_page(viewport={"width": 720, "height": 900}, device_scale_factor=2)
@@ -64,7 +70,7 @@ with sync_playwright() as p:
     check(new["idLabels"] == [], "TODO card has no labels")
 
     # 2) set P1 on that item -> item renamed, linked TODO card gets the emoji (no labels)
-    page.locator(".item").nth(0).locator("select.prio").select_option("1")
+    pick_prio(page, page.locator(".item").nth(0).locator("button.pbtn"), 1)
     page.wait_for_function("window.__state.checklists[0].checkItems[0].name.startsWith('🔴')")
     page.wait_for_timeout(300)
     st = S()
@@ -75,12 +81,12 @@ with sync_playwright() as p:
     page.evaluate("Object.values(window.__state.cards).find(c => c.idList === 'L_todo').name = '[5] 🔴 Approve with legal — Spring merch 24.11'")
     page.click("button[data-action=refresh]")
     page.wait_for_timeout(500)
-    page.locator(".item").nth(0).locator("select.prio").select_option("3")
+    pick_prio(page, page.locator(".item").nth(0).locator("button.pbtn"), 3)
     page.wait_for_function("window.__state.checklists[0].checkItems[0].name.startsWith('🟢')")
     page.wait_for_timeout(300)
     renamed = [c for c in S()["cards"].values() if c["idList"] == "L_todo"][0]["name"]
     check(renamed == "[5] 🟢 Approve with legal — Spring merch 24.11", f"emoji replaced in place in an edited title: {renamed}")
-    page.locator(".item").nth(0).locator("select.prio").select_option("1")
+    pick_prio(page, page.locator(".item").nth(0).locator("button.pbtn"), 1)
     page.wait_for_function("window.__state.checklists[0].checkItems[0].name.startsWith('🔴')")
     page.wait_for_timeout(300)
 
@@ -264,7 +270,7 @@ with sync_playwright() as p:
     secp.route("https://p.trellocdn.com/power-up.min.css", lambda rr: rr.fulfill(body="", content_type="text/css"))
     secp.goto(f"{BASE}/section.html")
     secp.wait_for_selector(".cl")
-    secp.locator(".item").nth(3).locator("select.prio").select_option("3")
+    pick_prio(secp, secp.locator(".item").nth(3).locator("button.pbtn"), 3)
     secp.close()  # the epic is closed at once
     cp.wait_for_function("window.__state.checklists[0].checkItems[3].name.startsWith('🟢')", timeout=5000)
     st = cp.evaluate("window.__state")

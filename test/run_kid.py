@@ -40,6 +40,12 @@ TODO_CARD = """S => {
   S.card = S.cards.T1;
 }"""
 
+def pick_prio(pg, btn, level):
+    """Priority is a narrow button now: click it and pick from the list (— = 0, P1 = 1 … NS = 5)."""
+    btn.click()
+    pg.wait_for_selector(".dd .dd-item")
+    pg.locator(".dd .dd-item").nth(level).click()
+
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox"])
     ctx = b.new_context(viewport={"width": 720, "height": 900}, device_scale_factor=2)
@@ -126,13 +132,13 @@ with sync_playwright() as p:
     check(len(S()["cards"][kid["shortLink"]]["checklists"][0]["checkItems"]) == 3, "not appended twice")
 
     # priority set in the epic -> the item in my card gets the emoji
-    page.locator(".item").nth(0).locator("select.prio").select_option("1")
+    pick_prio(page, page.locator(".item").nth(0).locator("button.pbtn"), 1)
     page.wait_for_function(f"window.__cardById('{kid['id']}').checklists[0].checkItems[0].name === '🔴 Approve with legal'")
     check(True, "priority copied into my checklist card")
     # the name may be corrected in the card: a later priority change only swaps the emoji, the rest stays
     page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems[0].name = '🔴 Approve with legal (v2, edited)'")
     refresh()
-    page.locator(".item").nth(0).locator("select.prio").select_option("2")
+    pick_prio(page, page.locator(".item").nth(0).locator("button.pbtn"), 2)
     page.wait_for_function(f"window.__cardById('{kid['id']}').checklists[0].checkItems[0].name === '🟠 Approve with legal (v2, edited)'", timeout=5000)
     check(True, "priority changed later: only the emoji changes in my card, the edited name stays")
     # a priority set in Trello itself (not through the select) reaches the card on the next open; names are not copied
@@ -141,7 +147,7 @@ with sync_playwright() as p:
     check(page.evaluate(f"window.__cardById('{kid['id']}').checklists[0].checkItems[1].name") == "🟢 Tranfser to IT",
           "priority from the epic reaches the card on the next open; the card's own name stays")
     # the checklist's priority set after the card was made -> the card "Epic / Checklist" gets the emoji
-    page.locator("select.cl-prio").first.select_option("1")
+    pick_prio(page, page.locator("button.cl-prio").first, 1)
     page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / 🔴 Spring merch 24.11'", timeout=5000)
     check(page.evaluate("window.__state.checklists[0].name") == "🔴 Spring merch 24.11", "checklist priority: epic checklist + my card name")
     page.wait_for_function(f"window.__cardById('{kid['id']}').checklists[0].name === '🔴 Spring merch 24.11'", timeout=5000)
@@ -152,10 +158,10 @@ with sync_playwright() as p:
     check(sep_names and all("— 🔴 Spring merch 24.11" in n for n in sep_names), f"separate cards of this checklist: 'Item — 🔴 Checklist': {sep_names}")
     page.evaluate(f"window.__cardById('{kid['id']}').name = 'PRODUCT LAUNCHES & UPDATES / 🔴 Spring merch (renamed)'")
     refresh()
-    page.locator("select.cl-prio").first.select_option("3")
+    pick_prio(page, page.locator("button.cl-prio").first, 3)
     page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / 🟢 Spring merch (renamed)'", timeout=5000)
     check(True, "checklist priority changed again: only the emoji in the renamed card changes")
-    page.locator("select.cl-prio").first.select_option("0")
+    pick_prio(page, page.locator("button.cl-prio").first, 0)
     page.wait_for_function(f"window.__cardById('{kid['id']}').name === 'PRODUCT LAUNCHES & UPDATES / Spring merch (renamed)' && window.__cardById('{kid['id']}').checklists[0].name === 'Spring merch 24.11'", timeout=5000)
     check(True, "priority removed in the epic: removed from my card's name and its checklist too")
     # changed in Trello itself (checklist renamed): reaches the cards on the next opening of the epic

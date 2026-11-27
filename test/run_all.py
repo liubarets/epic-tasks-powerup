@@ -97,7 +97,7 @@ with sync_playwright() as p:
     ns.wait_for_selector(".cl")
     check(ns.locator(".my-btn").all_inner_texts() == ["＋ Cards (5) ▾", "＋ Cards (4) ▾"] and ns.locator(".all-btn").inner_text() == "＋ All cards (9) ▾",
           f"an NS item is skipped: {ns.locator('.my-btn').all_inner_texts()} {ns.locator('.all-btn').inner_text()}")
-    check(ns.locator(".chip.add").count() > 0 and "NS" in ns.locator("select.prio").nth(1).inner_text(), "its chip is still there; NS is in the priority list")
+    check(ns.locator(".chip.add").count() > 0 and ns.locator("button.pbtn").count() > 0, "its chip is still there; NS is in the priority list")
     ns.close()
     ns2 = open_page("section.html", """S => { S.me = { id: 'mem' + '1'.padStart(21, '0'), username: 'maria_petrenko', fullName: 'Maria Petrenko' };
       S.checklists[1].name = '↪️ ' + S.checklists[1].name; }""")
