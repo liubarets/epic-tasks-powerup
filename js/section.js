@@ -626,6 +626,12 @@
       prioMenu(el);
     } else if (a === 'wide') {
       t.modal({ url: './section.html?wide=1', title: data.card.name, fullscreen: false, height: 900, accentColor: '#f1f2f4' });
+      // The window covers ⤢ while the mouse is still on it, so the card never hears the mouse leave and keeps ⤢ dark
+      // (:hover): switch the hover look off until the mouse moves over the card again.
+      root.classList.add('nohover');
+      setTimeout(function () {
+        document.addEventListener('mousemove', function back() { root.classList.remove('nohover'); document.removeEventListener('mousemove', back); });
+      }, 500);
     } else if (a === 'fold') {
       toggleFold(el.getAttribute('data-cl'));
     } else if (a === 'sort') {
