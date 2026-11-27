@@ -435,9 +435,10 @@
     var rows = cl.checkItems.map(itemHtml).join('');
     if (!rows && (ui.mine || ui.hideDone)) return '';
     var pct = total ? Math.round(done / total * 100) : 0;
-    return '<section class="cl"><div class="cl-head">' +
+    return '<section class="cl" data-cl="' + esc(cl.id) + '"><div class="cl-head">' +
       clPrioHtml(cl) +
-      '<span class="cl-name">' + esc(Core.withPriority(cl.name, 0)) + '</span>' +
+      '<button class="cl-name" data-action="fold" data-cl="' + esc(cl.id) + '" title="Fold / unfold this checklist">' +
+        '<span class="cl-chev">▾</span>' + esc(Core.withPriority(cl.name, 0)) + '<span class="cl-mini">' + done + '/' + total + '</span></button>' +
       '<span class="cl-actions">' +
       '<button class="link" data-action="sort" data-cl="' + esc(cl.id) + '" title="Sort items: P1 → P4, no priority, then NS">↕ Sort by priority</button>' +
       myCardsHtml(cl) +
@@ -460,6 +461,7 @@
       '<button class="icon" data-action="refresh" title="Refresh">⟳</button>' +
       '<button class="icon" data-action="settings" title="Settings">⚙</button>' + allCardsHtml() + '</div>' + myMenuHtml(allCl);
     if (ui.error) html += '<div class="error">' + esc(ui.error) + '</div>';
+    html += '<div class="fold-hint" style="display:none">Some checklists are folded so the whole epic fits. Click a checklist’s name to open it.</div>';
     // A re-render replaces the buttons: an open drop-down would point at nothing.
     if (window.EpicDropdown) EpicDropdown.close();
     if (Todo.todoListError(d)) {
@@ -469,7 +471,45 @@
     var body = d.checklists.map(checklistHtml).join('');
     html += body || '<div class="muted">No items match the filter.</div>';
     root.innerHTML = html;
+    fit();
     resize();
+  }
+
+  // ---- Folding checklists so the whole epic fits ----
+  // Trello caps a card-back section at 1500 px and the rest is cut off (no scroll). When the epic is taller,
+  // checklists fold to their header: first those with nothing left to do, then those with nothing left to
+  // hand out, then from the bottom. A click on a checklist's name folds or opens it; what was opened by hand
+  // stays open (the oldest of those folds again only if they don't fit together). Choices last for the page.
+  var MAX_H = 1480;
+  ui.opened = [];   // checklist ids opened by hand, oldest first
+  ui.closed = {};   // checklist ids folded by hand
+  function height() { return Math.ceil(root.getBoundingClientRect().height) + 12; }
+  function fit() {
+    var secs = [].slice.call(root.querySelectorAll('section.cl'));
+    var byId = {};
+    secs.forEach(function (el) { byId[el.getAttribute('data-cl')] = el; el.classList.toggle('folded', !!ui.closed[el.getAttribute('data-cl')]); });
+    var auto = 0;
+    if (height() > MAX_H) {
+      var info = data.checklists.map(function (cl, i) {
+        var open = cl.checkItems.filter(function (it) { return it.state !== 'complete'; }).length;
+        return { id: cl.id, i: i, rank: !open ? 0 : !Todo.pendingInChecklist(data, cl).length ? 1 : 2 };
+      }).filter(function (x) { return byId[x.id] && !ui.closed[x.id] && ui.opened.indexOf(x.id) === -1 && ui.menu !== x.id; });
+      info.sort(function (a, b) { return a.rank - b.rank || b.i - a.i; });
+      for (var k = 0; k < info.length && height() > MAX_H; k++) { byId[info[k].id].classList.add('folded'); auto++; }
+      // Still too tall with everything else folded: fold the oldest checklists opened by hand.
+      for (var j = 0; j < ui.opened.length - 1 && height() > MAX_H; j++) {
+        if (byId[ui.opened[j]] && ui.menu !== ui.opened[j]) { byId[ui.opened[j]].classList.add('folded'); auto++; }
+      }
+    }
+    var hint = root.querySelector('.fold-hint');
+    if (hint) hint.style.display = auto ? '' : 'none';
+  }
+  function toggleFold(id) {
+    var el = root.querySelector('section.cl[data-cl="' + id + '"]');
+    var folded = el && el.classList.contains('folded');
+    ui.opened = ui.opened.filter(function (x) { return x !== id; });
+    if (folded) { delete ui.closed[id]; ui.opened.push(id); } else { ui.closed[id] = 1; }
+    render();
   }
 
   function renderAuth() {
@@ -550,6 +590,8 @@
       if (ui.busy[ak]) return;
       ui.busy[ak] = 1; render();
       run(assignToMe(el.getAttribute('data-item'))).then(function () { delete ui.busy[ak]; render(); });
+    } else if (a === 'fold') {
+      toggleFold(el.getAttribute('data-cl'));
     } else if (a === 'sort') {
       el.disabled = true; el.textContent = 'Sorting…';
       run(sortChecklist(el.getAttribute('data-cl')));
