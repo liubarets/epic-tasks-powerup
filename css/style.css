@@ -127,6 +127,9 @@ button.my-btn .my-bprog > span { display: block; height: 100%; background: #fff;
 ul { list-style: none; margin: 0; padding: 0; }
 
 .item { display: flex; align-items: flex-start; gap: 8px; padding: 3px 4px; border-radius: 6px; }
+/* Tasks of a checklist: a thin line between them, as in Trello's lists */
+.cl ul .item { border-radius: 0; padding: 6px 4px; }
+.cl ul .item + .item { border-top: 1px solid #ebecf0; }
 .item:hover { background: var(--bg-soft); }
 .item.done .title { text-decoration: line-through; color: var(--muted); }
 
@@ -137,13 +140,13 @@ button.pbtn:hover { border-color: var(--blue); background: var(--blue-soft); }
 button.pbtn .pcv { font-size: 8px; color: var(--muted); margin-left: 1px; }
 select.prio { flex: none; width: 64px; height: 24px; min-height: 0; margin: 0; padding: 0 4px; font-size: 12px;
   border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--text); }
-.body { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-height: 24px; }
+.body { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 2px 8px; min-height: 24px; }
 /* Name and chips on one line when they fit (they wrap under the name when not): an epic takes half the height */
-.title { word-break: break-word; }
+.title { word-break: break-word; line-height: 20px; padding-top: 2px; }
 .due { margin-left: 6px; font-size: 11px; color: var(--muted); background: var(--bg-soft); padding: 0 6px; border-radius: 3px; }
 .due.overdue { background: #ffeceb; color: var(--red); }
 
-.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0; padding-top: 1px; }
 .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 20px; padding: 0 8px; margin: 0;
   border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--text); min-height: 0; height: 22px; }
 .chip .st { font-weight: 600; }
