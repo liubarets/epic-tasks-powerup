@@ -585,6 +585,8 @@
     var el = e.target.closest('[data-action]');
     if (!el || el.tagName === 'SELECT' || el.type === 'checkbox') return;
     var a = el.getAttribute('data-action');
+    // A mouse click leaves the toolbar button (⟳ ⚙ ⤢) focused, and Trello's CSS keeps it dark: let it go (the keyboard keeps it).
+    if (e.detail && el.classList.contains('icon')) el.blur();
     if (a === 'auth') {
       EpicAuth.authorize(t).then(refresh).catch(handleError);
     } else if (a === 'refresh') {
