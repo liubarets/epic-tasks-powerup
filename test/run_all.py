@@ -107,6 +107,33 @@ with sync_playwright() as p:
           f"an NS checklist: only its item with its own priority (🔴) is offered: {btns}")
     ns2.close()
 
+    # a big epic folds checklists so the section stays under Trello's 1500 px cap (no scroll there)
+    big = open_page("section.html", """S => {
+      const who = ['@maria_petrenko','@olenashevchenko0711','@tarasbondar','@sofia_melnyk']; let n = 0;
+      S.checklists = Array.from({length: 12}, (_, ci) => ({ id: 'clx' + ci, name: 'List ' + ci, pos: ci, checkItems: Array.from({length: 6}, (_, k) => {
+        n++; return { id: ('it' + n).padStart(24, '0'), name: 'Task ' + n + ' ' + who[n % 4] + ' ' + who[(n + 1) % 4], state: 'incomplete', pos: k }; }) }));
+      S.checklists[11].checkItems.forEach(i => i.state = 'complete'); }""")
+    big.wait_for_selector(".cl")
+    big.wait_for_timeout(600)
+    hb = big.evaluate("Math.ceil(document.getElementById('root').getBoundingClientRect().height)")
+    fl = big.evaluate("[...document.querySelectorAll('section.cl.folded')].map(s => s.getAttribute('data-cl'))")
+    check(hb <= 1480 and len(fl) > 0 and "clx11" in fl and big.locator(".fold-hint").is_visible(),
+          f"a big epic fits under 1500 px: {hb}px, folded {fl} (a finished checklist first), hint shown")
+    big.locator("section.cl.folded .cl-name").first.click()
+    big.wait_for_timeout(300)
+    opened = fl[0] if fl[0] != "clx11" else fl[1]
+    hb2 = big.evaluate("Math.ceil(document.getElementById('root').getBoundingClientRect().height)")
+    check(hb2 <= 1480, f"opening a folded checklist folds another, still fits: {hb2}px")
+    big.close()
+    small = open_page("section.html", AS_MARIA)
+    small.wait_for_selector(".cl")
+    small.wait_for_timeout(400)
+    check(small.locator("section.cl.folded").count() == 0 and not small.locator(".fold-hint").is_visible(), "a small epic: nothing folded")
+    small.locator("section.cl .cl-name").first.click()
+    small.wait_for_timeout(200)
+    check(small.locator("section.cl.folded").count() == 1, "a click on a checklist's name folds it")
+    small.close()
+
     one = open_page("section.html", ONE_CHECKLIST)
     one.wait_for_selector(".cl")
     check(one.locator(".all-btn").count() == 0, "an epic with one checklist has no '＋ All cards' (its own '＋ Cards' does the same)")
