@@ -177,4 +177,5 @@ python3 test/run_sp.py            # story points UI against a mocked Trello
 python3 test/run_kid.py           # "＋ Cards", checklist cards, epic ↔ card sync, points per checklist item
 python3 test/run_sprint.py        # sprints: TO DO SP<n> columns made on demand, the panel's sprint switcher, copied epics
 python3 test/run_all.py           # "＋ All cards": cards for every checklist of the epic at once
+python3 test/run_states.py        # buttons keep their size and colour on hover and after a click, with Trello's button CSS
 ```
